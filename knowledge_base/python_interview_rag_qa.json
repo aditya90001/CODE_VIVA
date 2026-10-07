@@ -1,0 +1,469 @@
+[
+  {
+    "id": 1,
+    "question": "Is Python a compiled language or an interpreted language?",
+    "expected_answer": "Python is considered both compiled and interpreted. Python source code is first compiled into bytecode, and the Python Virtual Machine (PVM) executes that bytecode. CPython follows this compile-then-interpret approach, while implementations such as PyPy can use JIT compilation.",
+    "evaluation_points": [
+      "both compiled and interpreted",
+      "source code compiled to bytecode",
+      "PVM executes bytecode",
+      "CPython"
+    ]
+  },
+  {
+    "id": 2,
+    "question": "Is indentation required in Python?",
+    "expected_answer": "Yes. Indentation is required in Python because it defines the grouping and blocks of code, such as the body of functions, loops, and conditional statements.",
+    "evaluation_points": [
+      "indentation is required",
+      "defines code blocks"
+    ]
+  },
+  {
+    "id": 3,
+    "question": "What is a dynamically typed language?",
+    "expected_answer": "A dynamically typed language determines the data type of a variable at runtime. In Python, you do not need to explicitly declare a variable's type, and the same variable can later refer to an object of a different type.",
+    "evaluation_points": [
+      "type determined at runtime",
+      "no explicit type declaration",
+      "variable can change referenced type"
+    ]
+  },
+  {
+    "id": 4,
+    "question": "What are the built-in data types in Python?",
+    "expected_answer": "Python's standard built-in data types include numeric types such as int, float, and complex; sequence types such as string, list, tuple, and range; mapping types such as dictionary; and set types such as set.",
+    "evaluation_points": [
+      "numeric",
+      "sequence",
+      "mapping/dictionary",
+      "set"
+    ]
+  },
+  {
+    "id": 5,
+    "question": "What is the difference between mutable and immutable data types in Python?",
+    "expected_answer": "Mutable objects can be changed after creation without creating a new object; common examples are lists, dictionaries, and sets. Immutable objects cannot be changed after creation; examples include strings, tuples, integers, and floats. Modifying an immutable value creates a new object.",
+    "evaluation_points": [
+      "mutable can change in place",
+      "immutable cannot change",
+      "list/dict/set examples",
+      "string/tuple/int/float examples"
+    ]
+  },
+  {
+    "id": 6,
+    "question": "What is the difference between == and is in Python?",
+    "expected_answer": "The == operator checks whether two objects have equal values, while is checks whether two variables refer to the same object in memory.",
+    "evaluation_points": [
+      "== compares value/equality",
+      "is compares object identity"
+    ]
+  },
+  {
+    "id": 7,
+    "question": "What is the difference between / and // in Python?",
+    "expected_answer": "The / operator performs regular division and returns a floating-point result, while // performs floor division and returns the floor of the division result.",
+    "evaluation_points": [
+      "/ regular division",
+      "// floor division",
+      "example 5/2 = 2.5",
+      "5//2 = 2"
+    ]
+  },
+  {
+    "id": 8,
+    "question": "How do you floor a number in Python?",
+    "expected_answer": "Use math.floor() from the math module. It returns the largest integer less than or equal to the given number. For example, math.floor(3.7) returns 3.",
+    "evaluation_points": [
+      "math.floor()",
+      "largest integer <= value"
+    ]
+  },
+  {
+    "id": 9,
+    "question": "What is the difference between a set and a dictionary in Python?",
+    "expected_answer": "A set is an unordered collection of unique elements. A dictionary stores key-value pairs and uses unique keys to access values; dictionaries preserve insertion order.",
+    "evaluation_points": [
+      "set contains unique elements",
+      "dictionary contains key-value pairs",
+      "dictionary keys are used for lookup"
+    ]
+  },
+  {
+    "id": 10,
+    "question": "How is a dictionary different from a list in Python?",
+    "expected_answer": "A list is an ordered collection whose elements are accessed by index, while a dictionary stores key-value pairs and accesses values using keys. Lists are useful for sequential data, whereas dictionaries are useful for data associated with meaningful keys.",
+    "evaluation_points": [
+      "list uses index",
+      "dictionary uses keys",
+      "both are ordered in modern Python",
+      "different use cases"
+    ]
+  },
+  {
+    "id": 11,
+    "question": "What is the difference between Python arrays and lists?",
+    "expected_answer": "Arrays from Python's array module store elements of the same type and are useful for numeric data with type consistency. Lists are more flexible, can contain different types of objects, are built into Python, and do not require an import.",
+    "evaluation_points": [
+      "array module",
+      "same element type",
+      "list can hold mixed types",
+      "list built-in"
+    ]
+  },
+  {
+    "id": 12,
+    "question": "What is the difference between a for loop and a while loop in Python?",
+    "expected_answer": "A for loop is commonly used when iterating over an iterable or when the number of iterations is known or naturally determined by the iterable. A while loop repeats as long as a condition remains true and is useful when the number of iterations is not known in advance.",
+    "evaluation_points": [
+      "for iterates over iterable/known iteration pattern",
+      "while depends on condition"
+    ]
+  },
+  {
+    "id": 13,
+    "question": "What are break, continue, and pass in Python?",
+    "expected_answer": "break terminates the loop immediately. continue skips the rest of the current iteration and moves to the next iteration. pass performs no operation and is used as a placeholder where a statement is syntactically required.",
+    "evaluation_points": [
+      "break terminates loop",
+      "continue skips current iteration",
+      "pass is no-op placeholder"
+    ]
+  },
+  {
+    "id": 14,
+    "question": "What is a lambda function in Python?",
+    "expected_answer": "A lambda function is an anonymous function written as a compact expression. It can accept multiple parameters but contains a single expression.",
+    "evaluation_points": [
+      "anonymous function",
+      "compact",
+      "multiple parameters possible",
+      "single expression"
+    ]
+  },
+  {
+    "id": 15,
+    "question": "What are map(), filter(), and reduce() in Python?",
+    "expected_answer": "map() applies a function to each element of an iterable. filter() selects elements that satisfy a condition. reduce() repeatedly combines elements to produce a single result and is provided by functools.",
+    "evaluation_points": [
+      "map transforms each element",
+      "filter selects by condition",
+      "reduce combines to one result",
+      "functools.reduce"
+    ]
+  },
+  {
+    "id": 16,
+    "question": "Can a function be passed as an argument in Python?",
+    "expected_answer": "Yes. Functions are objects in Python, so they can be passed as arguments to other functions. Functions that accept or return other functions are called higher-order functions.",
+    "evaluation_points": [
+      "functions are objects",
+      "can pass function as argument",
+      "higher-order functions"
+    ]
+  },
+  {
+    "id": 17,
+    "question": "What are *args and **kwargs in Python?",
+    "expected_answer": "*args allows a function to accept a variable number of positional arguments, which are collected as a tuple. **kwargs allows a variable number of keyword arguments, which are collected as a dictionary.",
+    "evaluation_points": [
+      "*args variable positional arguments",
+      "tuple",
+      "**kwargs variable keyword arguments",
+      "dictionary"
+    ]
+  },
+  {
+    "id": 18,
+    "question": "How are arguments passed by value or by reference in Python?",
+    "expected_answer": "Python uses pass-by-object-reference, also called call by object sharing. A reference to the object is passed to the function. Whether the original object changes depends on whether the object is mutable and whether the function mutates it.",
+    "evaluation_points": [
+      "pass-by-object-reference/call by object sharing",
+      "reference to object",
+      "mutation depends on mutability"
+    ]
+  },
+  {
+    "id": 19,
+    "question": "What is variable scope in Python?",
+    "expected_answer": "Variable scope is the region of a program where a variable can be accessed. Python has local scope for variables inside functions, global/module-level scope for names defined outside functions, and an outer built-in scope for built-in names.",
+    "evaluation_points": [
+      "scope defines where variable is accessible",
+      "local",
+      "global/module",
+      "built-in"
+    ]
+  },
+  {
+    "id": 20,
+    "question": "What is the LEGB rule in Python?",
+    "expected_answer": "LEGB is the order Python uses to resolve variable names: Local, Enclosing, Global, and Built-in. Python searches these scopes in that order until it finds the name.",
+    "evaluation_points": [
+      "Local",
+      "Enclosing",
+      "Global",
+      "Built-in",
+      "lookup order"
+    ]
+  },
+  {
+    "id": 21,
+    "question": "What are the global and nonlocal keywords in Python?",
+    "expected_answer": "global allows a function to modify a variable defined in the global scope. nonlocal allows a nested function to modify a variable from its nearest enclosing function scope.",
+    "evaluation_points": [
+      "global modifies global variable",
+      "nonlocal modifies enclosing function variable"
+    ]
+  },
+  {
+    "id": 22,
+    "question": "What is a docstring in Python?",
+    "expected_answer": "A docstring is a documentation string associated with a module, class, function, or method. It is normally written immediately inside the definition using triple quotes and can be accessed through the object's __doc__ attribute or help().",
+    "evaluation_points": [
+      "documentation string",
+      "module/class/function/method",
+      "triple quotes",
+      "__doc__ or help()"
+    ]
+  },
+  {
+    "id": 23,
+    "question": "How can you concatenate two lists in Python?",
+    "expected_answer": "Two lists can be concatenated using the + operator, which creates a new list, or using extend(), which adds the elements of the second iterable to the first list in place.",
+    "evaluation_points": [
+      "+ creates new list",
+      "extend modifies first list",
+      "both combine elements"
+    ]
+  },
+  {
+    "id": 24,
+    "question": "What is the difference between append() and extend() in Python?",
+    "expected_answer": "append() adds its argument as one element to the list, while extend() iterates over its argument and adds each element individually.",
+    "evaluation_points": [
+      "append adds one object",
+      "extend adds individual iterable elements",
+      "example nested list difference"
+    ]
+  },
+  {
+    "id": 25,
+    "question": "What is the difference between remove(), pop(), and del in Python?",
+    "expected_answer": "remove() deletes the first occurrence of a specified value. pop() removes an element by index and returns the removed element. del can delete an indexed element, a slice, or the entire list/reference.",
+    "evaluation_points": [
+      "remove by value",
+      "pop by index and returns item",
+      "del deletes element/slice/list"
+    ]
+  },
+  {
+    "id": 26,
+    "question": "What is list comprehension in Python? Give an example.",
+    "expected_answer": "List comprehension is a concise way to create a new list by applying an expression to each item of an iterable, optionally with a condition. For example, [x**2 for x in [2,3,4,5]] produces [4,9,16,25].",
+    "evaluation_points": [
+      "concise list creation",
+      "expression over iterable",
+      "optional condition",
+      "square example"
+    ]
+  },
+  {
+    "id": 27,
+    "question": "How is exception handling done in Python?",
+    "expected_answer": "Python handles runtime errors using try, except, and finally. try contains code that may raise an exception, except handles a matching exception, and finally runs after the try/except sequence whether or not an exception occurred, typically for cleanup.",
+    "evaluation_points": [
+      "try",
+      "except",
+      "finally",
+      "handles runtime errors"
+    ]
+  },
+  {
+    "id": 28,
+    "question": "What are modules and packages in Python?",
+    "expected_answer": "A module is a single Python file containing reusable code such as functions, variables, or classes. A package is a directory that organizes related modules and can contain an __init__.py file.",
+    "evaluation_points": [
+      "module is a Python file",
+      "package groups modules",
+      "__init__.py"
+    ]
+  },
+  {
+    "id": 29,
+    "question": "What is the purpose of if __name__ == \"__main__\" in Python?",
+    "expected_answer": "It ensures that a block of code runs when the file is executed directly, but not when the file is imported as a module.",
+    "evaluation_points": [
+      "runs when executed directly",
+      "does not run on import"
+    ]
+  },
+  {
+    "id": 30,
+    "question": "What is slicing in Python?",
+    "expected_answer": "Slicing extracts a portion of a sequence such as a string, list, tuple, or range using start, stop, and an optional step. The syntax is sequence[start:stop:step].",
+    "evaluation_points": [
+      "extracts part of sequence",
+      "start/stop/step",
+      "stop is generally exclusive"
+    ]
+  },
+  {
+    "id": 31,
+    "question": "What is the difference between a list and a tuple in Python?",
+    "expected_answer": "Lists are mutable, generally use more memory, and are suitable when elements may need to be inserted, deleted, or changed. Tuples are immutable, generally use less memory, and are suitable for fixed collections; tuple iteration can also be comparatively faster.",
+    "evaluation_points": [
+      "list mutable",
+      "tuple immutable",
+      "memory difference",
+      "use cases"
+    ]
+  },
+  {
+    "id": 32,
+    "question": "What is dictionary comprehension in Python? Give an example.",
+    "expected_answer": "Dictionary comprehension is a concise way to create dictionaries from an iterable by generating key-value pairs in a single expression. For example, {k:v for k,v in zip(keys, values)} creates a dictionary from corresponding keys and values.",
+    "evaluation_points": [
+      "concise dictionary creation",
+      "key-value expression",
+      "zip example"
+    ]
+  },
+  {
+    "id": 33,
+    "question": "Is tuple comprehension possible in Python? If not, why?",
+    "expected_answer": "Python does not have a separate tuple-comprehension syntax. An expression such as (i for i in (1,2,3)) is a generator expression, not a tuple comprehension. A tuple can be created by converting the generator with tuple().",
+    "evaluation_points": [
+      "no tuple comprehension syntax",
+      "parenthesized for expression is generator",
+      "tuple(generator)"
+    ]
+  },
+  {
+    "id": 34,
+    "question": "What is the difference between a shallow copy and a deep copy in Python?",
+    "expected_answer": "A shallow copy creates a new outer object but keeps references to nested objects, so changes to shared nested objects can be visible through both copies. A deep copy recursively copies nested objects, so the copies are independent. Shallow copying is generally faster than deep copying.",
+    "evaluation_points": [
+      "shallow copies outer object",
+      "nested references shared",
+      "deep recursively copies",
+      "deep more expensive"
+    ]
+  },
+  {
+    "id": 35,
+    "question": "What are iterators in Python?",
+    "expected_answer": "An iterator is an object used to produce items one at a time from an iterable. It implements __iter__() and __next__(), and next() retrieves the next item until the iterator is exhausted.",
+    "evaluation_points": [
+      "iterates one item at a time",
+      "__iter__",
+      "__next__",
+      "next()"
+    ]
+  },
+  {
+    "id": 36,
+    "question": "What are magic or dunder methods in Python?",
+    "expected_answer": "Magic or dunder methods are special methods whose names begin and end with double underscores. They allow classes to customize built-in behavior. Examples include __init__(), __str__(), __repr__(), and __len__().",
+    "evaluation_points": [
+      "double underscores",
+      "special methods",
+      "customize object behavior",
+      "examples"
+    ]
+  },
+  {
+    "id": 37,
+    "question": "What are generators in Python?",
+    "expected_answer": "Generators are memory-efficient iterators that produce values one at a time when requested instead of storing all values in memory. A function becomes a generator when it uses yield; yield returns a value and pauses execution until the next value is requested.",
+    "evaluation_points": [
+      "memory efficient",
+      "one value at a time",
+      "yield",
+      "pauses/resumes execution"
+    ]
+  },
+  {
+    "id": 38,
+    "question": "Which sorting algorithm is used by Python's sort() and sorted() functions?",
+    "expected_answer": "Python uses Timsort for sort() and sorted(). Timsort is a stable hybrid sorting algorithm derived from merge sort and insertion sort, with worst-case time complexity O(n log n).",
+    "evaluation_points": [
+      "Timsort",
+      "stable",
+      "hybrid merge/insertion sort",
+      "O(n log n) worst case"
+    ]
+  },
+  {
+    "id": 39,
+    "question": "What is the difference between sort() and sorted() in Python?",
+    "expected_answer": "sort() sorts a list in place and modifies the original list, returning None. sorted() returns a new sorted list and leaves the original iterable unchanged.",
+    "evaluation_points": [
+      "sort in-place",
+      "modifies original list",
+      "sorted returns new list",
+      "original unchanged"
+    ]
+  },
+  {
+    "id": 40,
+    "question": "Does Python support multiple inheritance?",
+    "expected_answer": "Yes. Python supports multiple inheritance, where a class can inherit from more than one base class. For example, class C(A, B) can inherit methods from both A and B.",
+    "evaluation_points": [
+      "Python supports multiple inheritance",
+      "multiple base classes",
+      "class C(A,B) example"
+    ]
+  },
+  {
+    "id": 41,
+    "question": "What is Method Resolution Order (MRO) in Python?",
+    "expected_answer": "MRO is the order in which Python searches classes for methods and attributes, especially when inheritance or multiple inheritance is involved. It can be inspected using the mro() method or __mro__.",
+    "evaluation_points": [
+      "method/attribute lookup order",
+      "inheritance",
+      "mro() or __mro__"
+    ]
+  },
+  {
+    "id": 42,
+    "question": "What is the purpose of the super() function in Python?",
+    "expected_answer": "super() allows a child class to access methods or constructors defined in a parent class according to the method resolution order. It is commonly used to call a parent class's __init__() from a child class.",
+    "evaluation_points": [
+      "access parent implementation",
+      "parent constructor",
+      "MRO"
+    ]
+  },
+  {
+    "id": 43,
+    "question": "What is polymorphism in Python?",
+    "expected_answer": "Polymorphism means that the same method name or interface can behave differently for different objects. In Python, child classes can override a parent method, allowing the same method call to produce different behavior depending on the object.",
+    "evaluation_points": [
+      "many forms",
+      "same method/interface",
+      "method overriding",
+      "different behavior by object"
+    ]
+  },
+  {
+    "id": 44,
+    "question": "What is encapsulation in Python?",
+    "expected_answer": "Encapsulation is the practice of hiding or controlling access to an object's internal state and interacting with it through defined interfaces or methods. Python supports this using naming conventions and mechanisms for public, protected, and private attributes.",
+    "evaluation_points": [
+      "hide/control internal state",
+      "methods/interfaces",
+      "public/protected/private"
+    ]
+  },
+  {
+    "id": 45,
+    "question": "How do you implement data abstraction in Python?",
+    "expected_answer": "The provided source begins the answer by defining data abstraction as providing only the essential details while hiding implementation details, but the source answer is incomplete.",
+    "evaluation_points": [
+      "essential details exposed",
+      "implementation details hidden"
+    ],
+    "source_status": "incomplete_in_source"
+  }
+]

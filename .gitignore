@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+venv/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Database / local storage
+*.db
+*.sqlite
+*.sqlite3
+
+# Chroma
+.chroma/
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
