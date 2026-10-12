@@ -1,5 +1,5 @@
 /* ==========================================================================
-   CODE_VIVA — Clean Natural White Evaluation UI
+   CODE_VIVA — Interactive Natural White Evaluation UI
    ========================================================================== */
 
 :root {
@@ -8,7 +8,7 @@
 
   /* Natural Clean White Palette */
   --bg-page: #f8fafc;
-  --bg-card: #ffffff;
+  --bg-card: rgba(255, 255, 255, 0.96);
   --bg-subtle: #f1f5f9;
   --bg-input: #ffffff;
 
@@ -41,7 +41,7 @@
   --radius-full: 9999px;
 
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
-  --shadow-elevated: 0 4px 12px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.03);
+  --shadow-elevated: 0 4px 16px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
 }
 
 *, *::before, *::after {
@@ -57,6 +57,7 @@ body {
   line-height: 1.5;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 button, input, textarea {
@@ -68,13 +69,112 @@ button, input, textarea {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  position: relative;
+}
+
+/* ==========================================================================
+   Interactive Background
+   ========================================================================== */
+.interactive-bg-wrapper {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+/* Subtle crisp Dot Grid */
+.bg-dot-grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(148, 163, 184, 0.28) 1.2px, transparent 1.2px);
+  background-size: 24px 24px;
+}
+
+/* Smooth Ambient Floating Orbs */
+.bg-ambient-orb-1 {
+  position: absolute;
+  top: -120px;
+  left: 15%;
+  width: 580px;
+  height: 580px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, rgba(224, 231, 255, 0.04) 60%, transparent 80%);
+  filter: blur(50px);
+  animation: orb-float-1 20s ease-in-out infinite alternate;
+}
+
+.bg-ambient-orb-2 {
+  position: absolute;
+  bottom: -80px;
+  right: 15%;
+  width: 520px;
+  height: 520px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.12) 0%, rgba(224, 242, 254, 0.04) 60%, transparent 80%);
+  filter: blur(50px);
+  animation: orb-float-2 24s ease-in-out infinite alternate;
+}
+
+.bg-ambient-orb-3 {
+  position: absolute;
+  top: 45%;
+  right: 30%;
+  width: 420px;
+  height: 420px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.08) 0%, transparent 70%);
+  filter: blur(45px);
+  animation: orb-float-3 16s ease-in-out infinite alternate;
+}
+
+/* Interactive Cursor Ambient Light */
+.interactive-cursor-light {
+  position: absolute;
+  width: 650px;
+  height: 650px;
+  margin-left: -325px;
+  margin-top: -325px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.09) 0%, transparent 65%);
+  pointer-events: none;
+  transition: transform 0.1s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
+@keyframes orb-float-1 {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(50px, 35px) scale(1.06); }
+  100% { transform: translate(-30px, 60px) scale(0.96); }
+}
+
+@keyframes orb-float-2 {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-40px, -50px) scale(1.08); }
+  100% { transform: translate(30px, -20px) scale(0.95); }
+}
+
+@keyframes orb-float-3 {
+  0% { transform: translate(0, 0); }
+  50% { transform: translate(-30px, 25px); }
+  100% { transform: translate(25px, -30px); }
+}
+
+/* Foreground Container */
+.app-foreground-container {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
 
 /* ==========================================================================
    Header Bar
    ========================================================================== */
 .header-bar {
-  background: var(--bg-card);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
   padding: 14px 24px;
   position: sticky;
@@ -105,6 +205,7 @@ button, input, textarea {
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
 }
 
 .logo-title {
@@ -154,12 +255,18 @@ button, input, textarea {
    ========================================================================== */
 .intake-card {
   max-width: 580px;
-  margin: 24px auto 0;
+  margin: 28px auto 0;
   background: var(--bg-card);
+  backdrop-filter: blur(12px);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 32px;
   box-shadow: var(--shadow-elevated);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.intake-card:hover {
+  box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.08), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
 }
 
 .intake-header {
@@ -203,7 +310,7 @@ button, input, textarea {
   background: var(--bg-input);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 10px 14px;
+  padding: 11px 14px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -226,46 +333,8 @@ button, input, textarea {
   background: transparent;
 }
 
-.suggestions-bar {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.suggestions-label {
-  font-size: 0.76rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-}
-
-.suggestions-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.suggestion-pill {
-  padding: 5px 10px;
-  border-radius: var(--radius-full);
-  background: var(--bg-subtle);
-  border: 1px solid var(--border);
-  font-size: 0.78rem;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.suggestion-pill:hover {
-  background: #e2e8f0;
-  color: var(--text-main);
-}
-
-.suggestion-pill.active {
-  background: #eff6ff;
-  border-color: #bfdbfe;
-  color: #1d4ed8;
-  font-weight: 600;
+.input-wrap input::placeholder {
+  color: #94a3b8;
 }
 
 .btn-primary {
@@ -273,7 +342,7 @@ button, input, textarea {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 12px 20px;
+  padding: 13px 20px;
   border-radius: var(--radius-md);
   background: var(--blue-primary);
   border: none;
@@ -281,12 +350,13 @@ button, input, textarea {
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, transform 0.15s ease;
   margin-top: 6px;
 }
 
 .btn-primary:hover:not(:disabled) {
   background: var(--blue-hover);
+  transform: translateY(-1px);
 }
 
 .btn-primary:disabled {
@@ -312,6 +382,7 @@ button, input, textarea {
 
 .sidebar-card {
   background: var(--bg-card);
+  backdrop-filter: blur(12px);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 20px;
@@ -425,6 +496,7 @@ button, input, textarea {
 /* Question Stage Card */
 .question-stage-card {
   background: var(--bg-card);
+  backdrop-filter: blur(12px);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 24px;
@@ -634,10 +706,11 @@ button, input, textarea {
 }
 
 /* ==========================================================================
-   Scorecard View (Clean White)
+   Scorecard View
    ========================================================================== */
 .scorecard-card {
   background: var(--bg-card);
+  backdrop-filter: blur(12px);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 28px;
