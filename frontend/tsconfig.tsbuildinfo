@@ -1,1 +1,1 @@
-{"root":["./src/app.tsx","./src/main.tsx"],"version":"5.9.3"}
+{"root":["./src/app.tsx","./src/constants.ts","./src/main.tsx","./src/types.ts","./src/components/analysispanel.tsx","./src/components/interviewroom.tsx","./src/components/kbstatsmodal.tsx","./src/components/navbar.tsx","./src/components/scorecardview.tsx","./src/components/setupcard.tsx"],"version":"5.9.3"}
