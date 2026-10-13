@@ -23,7 +23,7 @@ CONCEPT_MAP: list[dict[str, Any]] = [
         "label": "Python Programming",
         "signals": {
             "code_patterns": [r"@\w+", r"\basync\s+def\b", r"\bclass\s+\w+", r"\bdef\s+\w+\b", r"\bdict\b", r"\btry\s*:"],
-            "readme_keywords": ["python", "django", "flask", "fastapi", "script"],
+            "readme_keywords": ["python", "django", "flask", "fastapi"],
             "topic_keywords": ["python", "oop", "asyncio"],
         },
     },

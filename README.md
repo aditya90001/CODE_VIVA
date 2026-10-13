@@ -1,213 +1,208 @@
-# ⚡ CODE_VIVA
+# CODE_VIVA
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python" alt="Python 3.10+" />
-  <img src="https://img.shields.io/badge/FastAPI-API-009688?style=for-the-badge&logo=fastapi" alt="FastAPI" />
-  <img src="https://img.shields.io/badge/React-Frontend-61DAFB?style=for-the-badge&logo=react" alt="React" />
-  <img src="https://img.shields.io/badge/RAG-ChromaDB-FF6B6B?style=for-the-badge" alt="RAG + ChromaDB" />
-  <img src="https://img.shields.io/badge/AI-Interview-Evaluator-8A2BE2?style=for-the-badge" alt="AI Interview Evaluator" />
-</p>
+CODE_VIVA is a web application for running technical interviews grounded in a
+candidate's public GitHub repository and a local interview knowledge base.
+It analyzes repository metadata and source files, detects relevant concepts,
+retrieves matching questions from ChromaDB, and presents a ten-question
+interview with answer scores, feedback, and a final report. Candidates can type
+answers or use supported browser speech features.
 
-An intelligent technical evaluation platform that analyzes GitHub repositories, detects software engineering concepts, and conducts adaptive RAG-powered technical interviews with automated AI grading.
+## Features
 
-## Overview
+- **GitHub repository analysis:** Fetches public repository metadata, README
+  content, and a bounded selection of source/configuration files.
+- **Concept detection:** Uses repository code, README text, description, and
+  GitHub topics to identify technologies such as Python, machine learning,
+  RAG, frontend, backend, databases, and DevOps.
+- **Knowledge-base RAG:** Indexes JSON Q&A datasets and PDF question banks in a
+  persistent ChromaDB store, then retrieves questions by detected concept.
+- **Adaptive interview:** Selects ten questions across detected concepts,
+  combines related knowledge-base questions into multi-part prompts, and raises
+  the target difficulty for the final questions. Uses distinct project-focused
+  prompts when retrieval has no match.
+- **Answer evaluation:** Scores answers and returns feedback, then builds a
+  session report with overall score, readiness, strong areas, and weak areas.
+- **Voice interaction:** Browser speech synthesis can read questions aloud;
+  recorded answers are transcribed by the backend's local Whisper model and
+  placed in the editable answer field. No paid speech API is used.
+- **Persistent sessions:** Stores students, repositories, interview questions,
+  answers, and reports in SQLite by default, with PostgreSQL also supported.
+- **Knowledge-base operations:** API endpoints trigger indexing and report
+  JSON/PDF question-bank statistics.
 
-CODE_VIVA bridges the gap between static code reviews and live technical interviews. When a candidate submits a GitHub repository URL, the system:
+## Architecture
 
-1. Detects the technologies and engineering concepts used in the codebase.
-2. Retrieves relevant interview questions from a vectorized knowledge base.
-3. Generates adaptive questions based on repository context and selected difficulty.
-4. Evaluates candidate responses using LLM-based scoring and structured feedback.
+```mermaid
+flowchart TD
+    Candidate[Candidate in React / Vite UI]
+    BrowserVoice[Browser Speech Synthesis<br/>MediaRecorder]
+    API[FastAPI REST API]
+    Whisper[Local Whisper<br/>faster-whisper]
+    GitHub[GitHub REST API<br/>public repository]
+    Analyzer[Repository Analyzer]
+    Detector[Concept Detector]
+    Eval[Evaluation Service<br/>question selection and scoring]
+    JSON[JSON Knowledge Base]
+    PDF[PDF Question Banks]
+    Ingest[JSON / PDF Ingestion Services]
+    Chroma[(ChromaDB<br/>persistent vector store)]
+    Builtin[Built-in fallback questions]
+    Database[(SQLite / PostgreSQL<br/>evaluation sessions)]
+    Report[Interview Report]
 
-This makes it ideal for hiring pipelines, hackathon screening, technical assessments, and AI-powered learning environments.
-
----
-
-## How It Works
-
-```text
-Candidate GitHub Repo
-        │
-        ▼
-Concept Detection Engine
-  ├─ AST analysis
-  ├─ Imports and dependencies
-  └─ Language / framework detection
-        │
-        ▼
-RAG Knowledge Retrieval
-  ├─ ChromaDB vector store
-  ├─ JSON / PDF question banks
-  └─ Topic-aware retrieval
-        │
-        ▼
-Adaptive Interview Generator
-  ├─ Difficulty selection
-  ├─ Personalized question flow
-  └─ LLM-driven questioning
-        │
-        ▼
-Answer Evaluation Engine
-  ├─ Structured grading criteria
-  ├─ Score (0–100)
-  └─ Feedback + takeaways
+    Candidate <--> BrowserVoice
+    Candidate <--> API
+    BrowserVoice -->|recorded audio| API
+    API --> Whisper
+    Whisper -->|transcript text| API
+    API --> Analyzer
+    Analyzer <--> GitHub
+    Analyzer --> Detector
+    Detector --> Eval
+    JSON --> Ingest
+    PDF --> Ingest
+    Ingest --> Chroma
+    Eval -->|retrieve relevant question| Chroma
+    Eval -->|no knowledge-base match| Builtin
+    Eval -->|save session, questions, answers| Database
+    Eval --> Report
+    Report --> API
 ```
 
----
+### Interview request flow
 
-## Architecture & Data Flow
+1. The frontend sends the candidate's name, email, and GitHub URL to
+   `POST /api/v1/evaluations`.
+2. The backend fetches the public repository profile and selected files from
+   GitHub, then detects concepts from the returned code and repository text.
+3. The evaluation service searches the JSON question collection in ChromaDB
+   for an unused question related to the selected concept. It next tries the
+   PDF question collection, then the built-in fallback bank.
+4. The question and session are saved to the relational database and returned
+   to the frontend.
+5. The candidate types an answer or records it in the browser. The backend
+   transcribes the audio locally with Whisper; the transcript can be edited
+   before submission.
+6. The backend evaluates the answer, stores its score and feedback, and returns
+   the next question. After ten answers, it marks the interview complete and
+   generates a report.
 
-```text
-┌─────────────────────────┐      ┌────────────────────────────┐
-│ Candidate GitHub Repo   │ ──► │ Concept Detector AST       │
-└─────────────────────────┘      └────────────┬───────────────┘
-                                              │ detected concepts
-                                              ▼
-┌─────────────────────────┐      ┌────────────────────────────┐
-│ JSON / PDF Knowledge   │ ──► │ ChromaDB Vector Store      │
-│ Base (knowledge_base/) │      │ (topic-wise Q&A index)     │
-└─────────────────────────┘      └────────────┬───────────────┘
-                                              │ RAG context
-                                              ▼
-                                  ┌────────────────────────────┐
-                                  │ LLM Question Engine        │
-                                  └────────────┬───────────────┘
-                                               │ interactive Q&A
-                                               ▼
-                                  ┌────────────────────────────┐
-                                  │ Evaluation Service         │
-                                  │ Score + Feedback           │
-                                  └────────────────────────────┘
-```
+### Knowledge-base indexing and retrieval
 
----
+- On backend startup, every `knowledge_base/*.json` file is parsed and
+  **upserted** into the `json_question_bank` Chroma collection. This supports
+  both top-level JSON arrays and dataset objects with an `items` array.
+- PDF files are ingested through the admin ingestion endpoint into the
+  `question_bank` collection. PDF question extraction recognizes numbered
+  questions and `[Easy]`, `[Medium]`, and `[Hard]` difficulty markers.
+- JSON records may provide a topic, answer, evaluation points, example,
+  interview tip, and difficulty. Missing difficulty is inferred by the
+  ingestion service.
+- The supplied
+  [`machine_learning_interview_qa(1).json`](./knowledge_base/machine_learning_interview_qa(1).json)
+  contains 61 ML question-and-answer records. The ingester recognizes its
+  `items` wrapper and categorizes its records as `machine_learning`.
+- Re-ingestion is safe for JSON files: stable IDs are upserted so entries can
+  be refreshed without creating duplicate records.
 
-## Key Features
+## Technology Stack
 
-- 🔍 Automated concept detection from repositories
-- 📚 Extensible JSON and PDF knowledge base
-- 🧠 RAG-powered retrieval using ChromaDB
-- ⚡ Auto-indexing of knowledge files on startup
-- 💯 Granular evaluation with actionable feedback
-- 🎨 Modern frontend experience for interview sessions
-- 🛠️ Support for multiple LLM providers like Gemini, Groq, and Ollama
+| Area | Technologies |
+|---|---|
+| Frontend | React 18, TypeScript, Vite |
+| Backend API | Python 3.11+, FastAPI, Pydantic |
+| Relational storage | SQLAlchemy, SQLite by default, PostgreSQL supported |
+| Vector search | ChromaDB with persistent local storage |
+| Repository analysis | GitHub REST API, `httpx`, regular-expression concept signals |
+| Knowledge ingestion | JSON, `pypdf` for PDFs |
+| Voice | Browser Speech Synthesis and MediaRecorder; backend `faster-whisper` transcription |
 
----
-
-## Repository Structure
+## Repository Layout
 
 ```text
 .
 ├── backend/
 │   ├── app/
-│   │   ├── api/v1/
+│   │   ├── api/v1/router.py                 # REST endpoints
 │   │   ├── services/
-│   │   │   ├── concept_detector.py
-│   │   │   ├── json_kb_ingestion_service.py
-│   │   │   ├── pdf_ingestion_service.py
-│   │   │   ├── evaluation_service.py
-│   │   │   └── github_analyzer.py
-│   │   ├── config.py
-│   │   ├── db.py
-│   │   ├── main.py
-│   │   └── models.py
-│   └── requirements.txt
-│
+│   │   │   ├── concept_detector.py           # Repository concept detection
+│   │   │   ├── evaluation_service.py         # Sessions, questions, scoring, reports
+│   │   │   ├── github_analyzer.py            # Public GitHub repository analysis
+│   │   │   ├── json_kb_ingestion_service.py  # JSON parse, index, retrieve
+│   │   │   ├── llm_service.py                # OpenAI-compatible question-generation utility
+│   │   │   ├── pdf_ingestion_service.py      # PDF question extraction and retrieval
+│   │   │   └── rag_service.py                # Repository-code ChromaDB utilities
+│   │   ├── config.py                         # Environment-backed settings
+│   │   ├── db.py                             # SQLAlchemy engine/session
+│   │   ├── main.py                           # FastAPI app and startup indexing
+│   │   ├── models.py                         # Student, repository, interview session
+│   │   └── schemas.py                        # API request and response schemas
+│   ├── requirements.txt
+│   └── tests/
+│       └── test_api.py
 ├── frontend/
 │   ├── src/
+│   │   ├── App.tsx                           # Interview UI and browser voice controls
+│   │   ├── index.css                         # Application styles
+│   │   └── main.tsx                          # React entry point
 │   ├── package.json
-│   └── vite.config.js
-│
-├── knowledge_base/
-│   ├── README.md
-│   ├── python_interview_rag_qa.json
-│   ├── rag_knowledge_base_30_qa.json
-│   └── ...
-│
+│   └── vite.config.ts
+├── knowledge_base/                           # JSON Q&A banks and PDF sources
 ├── .env.example
-├── docker-compose.yml
-├── LICENSE
-├── README.md
-└── .gitignore
+├── docker-compose.yml                        # Optional PostgreSQL service
+└── README.md
 ```
 
----
+## Requirements
 
-## Knowledge Base Extension
-
-You can extend the system by adding new concept-wise Q&A datasets to the `knowledge_base/` directory. The application automatically scans and indexes these files at startup.
-
-### Example JSON Schema
-
-```json
-[
-  {
-    "id": 1,
-    "topic": "FastAPI & Async",
-    "question": "How does dependency injection work in FastAPI?",
-    "expected_answer": "FastAPI resolves dependencies declared in endpoint signatures using the Depends function, helping with shared logic, authentication, and clean architecture.",
-    "evaluation_points": [
-      "Explains dependency injection",
-      "Mentions Depends() usage",
-      "Discusses separation of concerns and reusability"
-    ],
-    "difficulty": "medium"
-  }
-]
-```
-
-### Supported Fields
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `question` | String | Yes | Interview question text |
-| `expected_answer` | String | Yes | Reference answer for grading |
-| `topic` or `concept` | String | Optional | Topic category |
-| `evaluation_points` | Array | Optional | Evaluation criteria |
-| `difficulty` | String | Optional | `easy`, `medium`, or `hard` |
-| `interview_tip` | String | Optional | Extra guidance for the interview |
-
----
-
-## Local Development Setup
-
-### Prerequisites
-
-- Python 3.10+
-- Node.js 18+
-- npm
+- Python 3.11 or newer
+- Node.js 18 or newer and npm
 - Git
+- Internet access for GitHub repository analysis
 
-### 1) Backend Setup
+The default configuration uses SQLite and a local persistent ChromaDB directory;
+PostgreSQL and an OpenAI-compatible LLM endpoint can be configured optionally.
+
+## Local Development
+
+Run commands from the repository root unless noted otherwise.
+
+### 1. Configure the backend
+
+Create and activate a virtual environment, install dependencies, and copy the
+sample environment file:
+
+**Windows PowerShell**
+
+```powershell
+py -3.11 -m venv venv
+.\venv\Scripts\Activate.ps1
+python -m pip install -r backend\requirements.txt
+Copy-Item .env.example .env
+```
+
+**macOS / Linux**
 
 ```bash
-git clone https://github.com/your-username/CODE_VIVA.git
-cd CODE_VIVA
-
-python -m venv venv
-
-# Windows PowerShell
-.\venv\Scripts\activate
-
-# macOS / Linux
+python3.11 -m venv venv
 source venv/bin/activate
-
-pip install -r backend/requirements.txt
+python -m pip install -r backend/requirements.txt
 cp .env.example .env
 ```
 
-Run the backend:
+Start the API server:
 
 ```bash
 python -m uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-The app will be available at:
+The FastAPI application creates relational database tables and ingests JSON
+knowledge-base files at startup. OpenAPI/Swagger documentation is available at
+`http://localhost:8000/docs`.
 
-- API: `http://localhost:8000`
-- Swagger docs: `http://localhost:8000/docs`
+### 2. Configure and run the frontend
 
-### 2) Frontend Setup
+In a second terminal:
 
 ```bash
 cd frontend
@@ -215,55 +210,232 @@ npm install
 npm run dev
 ```
 
-Frontend runs at:
+Open `http://localhost:5173`. The frontend currently sends API requests to
+`http://localhost:8000/api/v1`.
 
-- Web app: `http://localhost:5173`
+### 3. Optional PostgreSQL
 
----
+The Compose file starts PostgreSQL 16 on port `5432`:
 
-## Environment Variables
-
-Create a `.env` file in the project root:
-
-```env
-DATABASE_URL=sqlite:///./evaluator.db
-APP_ENV=development
-CORS_ORIGINS=http://localhost:5173
-GITHUB_TOKEN=your_github_personal_access_token
-LLM_PROVIDER=gemini
-LLM_MODEL=gemini-1.5-flash
-LLM_API_KEY=your_gemini_api_key
-CHROMA_ENABLED=true
-CHROMA_PERSIST_DIR=./.chroma
+```bash
+docker compose up -d postgres
 ```
 
----
+Set `DATABASE_URL` in `.env` to the PostgreSQL connection string for your
+environment. The default app configuration is SQLite and does not require
+Docker.
 
-## API Overview
+## Configuration
+
+Set values in the root `.env` file. `.env` is ignored by Git; do not commit
+secrets.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `DATABASE_URL` | `sqlite:///./evaluator.db` | SQLAlchemy database connection |
+| `APP_ENV` | `development` | Environment label returned by `/health` |
+| `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated allowed frontend origins |
+| `GITHUB_TOKEN` | Empty | Optional GitHub token setting; repository analyzer currently supports public repositories |
+| `LLM_PROVIDER` | `groq` | Provider label for LLM configuration |
+| `LLM_MODEL` | `llama3-8b-8192` | Model name used by the OpenAI-compatible LLM utility |
+| `LLM_API_KEY` | Empty | API key used by the LLM utility when calling a compatible endpoint |
+| `LLM_BASE_URL` | Empty | Optional OpenAI-compatible API base URL; defaults to Groq's API in the LLM utility |
+| `CHROMA_ENABLED` | `false` | Chroma feature setting |
+| `CHROMA_PERSIST_DIR` | `./.chroma` | Persistent vector-store directory |
+| `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | Empty | Reserved LiveKit configuration |
+| `STT_LANGUAGE` | Empty | Optional language hint for Whisper, such as `en` or `hi`; auto-detected when empty |
+| `STT_MODEL`, `TTS_MODEL`, `TTS_VOICE` | Empty | Reserved speech configuration |
+| `WHISPER_MODEL` | `tiny` | Whisper model size downloaded by the backend for speech transcription |
+| `VITE_API_BASE_URL` | `http://localhost:8000/api/v1` | Frontend build-time variable; set in the frontend environment/Render Static Site, not the backend `.env` |
+
+ChromaDB stores its local index in `.chroma/` by default. That directory is
+ignored by Git and may be regenerated by re-ingesting the knowledge base.
+
+## Knowledge Base Format
+
+Add JSON files under `knowledge_base/`. Both a top-level array and a wrapped
+dataset object are supported.
+
+**Top-level array**
+
+```json
+[
+  {
+    "id": 1,
+    "topic": "FastAPI",
+    "question": "How does dependency injection work in FastAPI?",
+    "expected_answer": "FastAPI resolves declared dependencies for a request, enabling shared logic such as database sessions and authentication.",
+    "evaluation_points": [
+      "Explains dependency injection",
+      "Mentions Depends",
+      "Connects dependencies to reusable request-scoped logic"
+    ],
+    "difficulty": "medium"
+  }
+]
+```
+
+**Wrapped dataset**
+
+```json
+{
+  "dataset_name": "database_interview_qa",
+  "items": [
+    {
+      "id": "db_001",
+      "topic": "Databases",
+      "question": "What is an index?",
+      "answer": "An index is a data structure that helps a database find rows more efficiently.",
+      "difficulty": "easy"
+    }
+  ]
+}
+```
+
+Supported aliases include `question`/`q`, `expected_answer`/`answer`/`a`,
+`topic`/`concept`/`category`, and `evaluation_points`/`eval_points`/`key_points`.
+`difficulty` may be `easy`, `medium`, or `hard`; it is optional.
+
+For PDF sources, add `.pdf` files under `knowledge_base/`. Use numbered question
+lines and optional `[Easy]`, `[Medium]`, or `[Hard]` section markers for best
+results. JSON ingestion runs at backend startup; use the admin endpoints below
+to re-index while the server is running.
+
+## API Reference
+
+All application endpoints are prefixed with `/api/v1`.
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/api/v1/evaluations` | Start an interview evaluation session |
-| `GET` | `/api/v1/evaluations/{session_id}/analysis` | Get detected repository concepts |
-| `POST` | `/api/v1/evaluations/{session_id}/next-question` | Generate the next adaptive question |
-| `POST` | `/api/v1/evaluations/{session_id}/answer` | Submit an answer and get scored feedback |
-| `GET` | `/api/v1/evaluations/{session_id}` | View session status |
-| `GET` | `/api/v1/evaluations/{session_id}/report` | Fetch final report and scorecard |
-| `POST` | `/api/v1/admin/ingest-json-kb` | Re-index knowledge files |
-| `GET` | `/health` | Health check |
+| `GET` | `/health` | Service health and configured environment |
+| `GET` | `/api/v1/health` | API router health |
+| `POST` | `/api/v1/evaluations` | Analyze a GitHub repository and start an interview |
+| `GET` | `/api/v1/evaluations/{session_id}/analysis` | Retrieve the repository profile and analysis |
+| `POST` | `/api/v1/evaluations/{session_id}/next-question` | Return/create the current interview question |
+| `POST` | `/api/v1/evaluations/{session_id}/answer` | Score and save an answer, then return the next question |
+| `POST` | `/api/v1/voice/transcription` | Transcribe a multipart audio recording using local Whisper |
+| `GET` | `/api/v1/evaluations/{session_id}` | Retrieve the evaluation session |
+| `GET` | `/api/v1/evaluations/{session_id}/report` | Retrieve or build the final session report |
+| `POST` | `/api/v1/admin/ingest-json-kb` | Re-index JSON knowledge-base files in the background |
+| `POST` | `/api/v1/admin/ingest-knowledge-base` | Re-index JSON and PDF knowledge-base files in the background |
+| `GET` | `/api/v1/admin/knowledge-base-stats` | Get JSON and PDF vector-bank statistics |
 
----
+### Start an evaluation
+
+```json
+{
+  "student": {
+    "name": "Ada Student",
+    "email": "ada@example.com"
+  },
+  "repository": {
+    "url": "https://github.com/owner/repository"
+  }
+}
+```
+
+### Submit an answer
+
+```json
+{
+  "answer": "A written answer or browser-transcribed speech."
+}
+```
+
+The answer endpoint returns the evaluation label, a `0`–`100` score, feedback,
+and the next question (or `null` when the ten-question interview is complete).
+
+The voice transcription endpoint accepts an `audio` multipart file field
+(supported containers include WebM, MP4, Ogg, WAV, and MP3) and returns
+`{"text": "recognized speech"}`. Recordings are limited to 20 MB.
+
+## Voice Mode
+
+Question playback uses the browser's built-in Speech Synthesis API. For spoken
+answers, the browser records audio with `MediaRecorder` and uploads it as
+multipart audio to `POST /api/v1/voice/transcription`. The backend transcribes
+the recording locally using `faster-whisper` on CPU (`int8`) and returns text.
+The transcript is appended to the answer field, where it can be reviewed or
+edited before submission.
+
+- **Turn voice mode on** reads the current question and subsequent questions.
+- **Read question aloud** plays the current question on demand.
+- **Answer by voice** starts microphone recording; **Stop recording** sends the
+  captured audio for transcription.
+
+Microphone recording requires browser support and user permission. Production
+sites must use HTTPS; `localhost` is allowed for development. Audio is
+transmitted as a binary multipart upload rather than base64, which avoids
+base64's size overhead. If recording or transcription fails, the answer can
+still be typed into the same field.
+
+### Deploying on Render
+
+Deploy the backend as a Render **Web Service** from the repository root:
+
+- **Build command:** `pip install -r backend/requirements.txt`
+- **Start command:** `uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT`
+- Configure `CORS_ORIGINS` with the deployed frontend origin.
+- Configure `CHROMA_PERSIST_DIR` to a persistent disk path if the Chroma
+  question index should survive service restarts.
+- Set `WHISPER_MODEL=tiny` to use the smallest default Whisper model.
+- Set `STT_LANGUAGE` if interviews should transcribe a known language rather
+  than asking Whisper to detect it.
+
+Deploy `frontend/` as a Render **Static Site**:
+
+- **Build command:** `npm install && npm run build`
+- **Publish directory:** `dist`
+- Set `VITE_API_BASE_URL` to the backend URL ending in `/api/v1`, for example
+  `https://your-api.onrender.com/api/v1`.
+- Include the frontend's exact Render URL in the backend `CORS_ORIGINS` value.
+
+Whisper downloads its model the first time speech transcription is requested.
+Keep enough disk available for the model cache. If you attach a persistent disk
+at `/var/data`, set `HF_HOME=/var/data/huggingface` and
+`CHROMA_PERSIST_DIR=/var/data/chroma` so both the model cache and question index
+survive restarts. CPU transcription needs more memory and compute than a basic API
+service; choose a Render instance with sufficient resources for the selected
+model. If the instance cannot load Whisper or the audio cannot be transcribed,
+the endpoint returns an error and candidates can type their answers instead.
+
+## Evaluation Notes
+
+Answer evaluation in `EvaluationService.score_answer` is currently a lightweight
+keyword/reasoning-marker heuristic, not an LLM-based assessment. It returns a
+score, verdict, and generic improvement feedback. The question bank stores
+reference answers and optional evaluation points, but this scoring method does
+not currently compare responses against those reference answers. Treat scores
+as developmental guidance rather than a hiring decision.
+
+The repository includes an OpenAI-compatible LLM utility for grounded question
+generation, but the current evaluation flow selects retrieved or built-in bank
+questions. Configuring an LLM key alone does not switch the current interview
+flow to LLM-generated questions or LLM grading.
+
+## Testing and Build
+
+Run the backend tests from the repository root:
+
+```bash
+python -m pytest backend/tests -q
+```
+
+Build and type-check the frontend:
+
+```bash
+cd frontend
+npm run build
+```
 
 ## Contributing
 
-1. Fork the repository.
-2. Create a feature branch.
-3. Add or update knowledge data, backend logic, or frontend features.
-4. Test the workflow end-to-end.
-5. Open a pull request with a clear description.
-
----
+1. Create a branch for your change.
+2. Keep API schemas and documentation in sync with behavior.
+3. Add focused tests for backend behavior or data ingestion changes.
+4. Run the relevant backend tests and frontend build.
+5. Open a pull request with a concise description of the change.
 
 ## License
 
-This project is licensed under the MIT License. See the `LICENSE` file for details.
+This project is licensed under the MIT License. See [LICENSE](./LICENSE).

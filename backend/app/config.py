@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     stt_language: str | None = None
     tts_model: str | None = None
     tts_voice: str | None = None
+    whisper_model: str = "tiny"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

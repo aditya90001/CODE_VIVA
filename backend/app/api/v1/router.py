@@ -4,8 +4,9 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
 from backend.app.config import settings
 from backend.app.db import get_db
@@ -18,7 +19,10 @@ from backend.app.schemas import (
     QuestionResponse,
     ReportResponse,
 )
-from backend.app.services.evaluation_service import EvaluationService
+from backend.app.services.evaluation_service import (
+    INTERVIEW_QUESTION_COUNT,
+    EvaluationService,
+)
 from backend.app.services.github_analyzer import GitHubRepositoryError, analyze_repository
 from backend.app.services.pdf_ingestion_service import (
     get_question_bank_stats,
@@ -27,11 +31,16 @@ from backend.app.services.pdf_ingestion_service import (
 from backend.app.services.json_kb_ingestion_service import (
     ingest_json_knowledge_base,
     get_json_kb_stats,
-    is_json_kb_ready,
+)
+from backend.app.services.speech_service import (
+    SpeechModelUnavailableError,
+    SpeechTranscriptionError,
+    transcribe_audio,
 )
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+MAX_VOICE_UPLOAD_BYTES = 20 * 1024 * 1024
 
 
 @router.get("/health")
@@ -107,6 +116,31 @@ def kb_stats() -> dict[str, Any]:
         "pdf_bank": pdf_stats,
         "json_kb": json_stats,
     }
+
+
+@router.post("/voice/transcription")
+async def voice_transcription(audio: UploadFile = File(...)) -> dict[str, str]:
+    if not audio.content_type or not audio.content_type.startswith("audio/"):
+        raise HTTPException(status_code=415, detail="Upload an audio recording.")
+
+    recording = await audio.read(MAX_VOICE_UPLOAD_BYTES + 1)
+    if len(recording) > MAX_VOICE_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Recording exceeds the 20 MB limit.")
+    if not recording:
+        raise HTTPException(status_code=400, detail="Audio recording is empty.")
+
+    try:
+        transcript = await run_in_threadpool(
+            transcribe_audio,
+            recording,
+            audio.content_type,
+        )
+    except SpeechModelUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except SpeechTranscriptionError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    return {"text": transcript}
 
 
 # ---------------------------------------------------------------------------
@@ -203,12 +237,12 @@ async def submit_answer(session_id: str, payload: AnswerSubmission, db: Session 
     session.answers = existing_answers + [answer_record]
     session.questions = list(session.questions or [])
 
-    next_q = await EvaluationService.generate_question(session.profile or {}, session.questions or [])
-    if len(session.answers or []) >= 3:
+    if len(session.answers or []) >= INTERVIEW_QUESTION_COUNT:
         next_q = None
         session.status = "completed"
         session.report = EvaluationService.build_report(session.profile or {}, session.answers or [])
     else:
+        next_q = await EvaluationService.generate_question(session.profile or {}, session.questions or [])
         session.current_question = next_q
         session.questions = list(session.questions or []) + [next_q]
         session.status = "in_progress"

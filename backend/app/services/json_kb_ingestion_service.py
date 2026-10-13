@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Any
 
@@ -62,15 +63,24 @@ def _parse_generic_json_kb(filepath: Path) -> list[dict[str, Any]]:
         logger.error("json_kb: failed to read %s -- %s", filepath.name, exc)
         return []
 
-    if not isinstance(raw, list):
-        logger.warning("json_kb: expected a list of JSON objects in %s", filepath.name)
+    if isinstance(raw, dict):
+        items = raw.get("items")
+        dataset_name = raw.get("dataset_name")
+    else:
+        items = raw
+        dataset_name = None
+
+    if not isinstance(items, list):
+        logger.warning("json_kb: expected a list or an object containing items in %s", filepath.name)
         return []
 
     fname = filepath.name.lower()
-    default_domain = filepath.stem.replace("_qa", "").replace("_knowledge_base", "").replace("_interview", "")
+    domain_source = str(dataset_name or filepath.stem).lower()
+    default_domain = re.sub(r"[^a-z0-9]+", "_", domain_source).strip("_")
+    default_domain = re.sub(r"_(interview_)?(knowledge_base|qa)$", "", default_domain)
 
     entries = []
-    for idx, item in enumerate(raw, start=1):
+    for idx, item in enumerate(items, start=1):
         if not isinstance(item, dict):
             continue
 
@@ -90,6 +100,8 @@ def _parse_generic_json_kb(filepath: Path) -> list[dict[str, Any]]:
             domain = "rag"
         elif "python" in fname:
             domain = "python"
+        elif "machine_learning" in default_domain or default_domain == "ml":
+            domain = "machine_learning"
         else:
             domain = default_domain
 
@@ -144,13 +156,16 @@ def _index_entries(entries: list[dict[str, Any]], persist_dir: str) -> int:
         for entry in entries:
             entry_id = hashlib.md5(f"{entry['domain']}::{entry['question']}".encode()).hexdigest()
             docs.append(entry["doc_text"])
-            metas.append({
+            metadata = {
                 "question": entry["question"],
                 "answer": entry["answer"][:500],
                 "topic": entry["topic"],
                 "domain": entry["domain"],
                 "difficulty": entry["difficulty"],
-            })
+            }
+            if entry["evaluation_points"]:
+                metadata["evaluation_points"] = entry["evaluation_points"]
+            metas.append(metadata)
             ids.append(entry_id)
         batch = 500
         for start in range(0, len(docs), batch):
@@ -218,10 +233,12 @@ def retrieve_json_questions(
     try:
         # Try semantic search matching concept and difficulty first
         search_term = concept.replace("_", " ")
+        domain = "machine_learning" if concept == "ml" else concept
         results = collection.query(
             query_texts=[search_term],
             n_results=min(n + len(exclude) + 10, total),
             include=["documents", "metadatas"],
+            where={"domain": domain},
         )
         docs = results.get("documents", [[]])[0]
         metas = results.get("metadatas", [[]])[0]
@@ -236,6 +253,7 @@ def retrieve_json_questions(
                     "topic": meta.get("topic", concept),
                     "domain": meta.get("domain", concept),
                     "difficulty": meta.get("difficulty", difficulty),
+                    "evaluation_points": meta.get("evaluation_points", []),
                 })
             if len(questions) >= n:
                 break
@@ -262,4 +280,3 @@ def is_json_kb_ready(persist_dir: str) -> bool:
     """Return True if the JSON knowledge base has been indexed."""
     stats = get_json_kb_stats(persist_dir)
     return stats.get("available", False) and stats.get("total", 0) > 0
-

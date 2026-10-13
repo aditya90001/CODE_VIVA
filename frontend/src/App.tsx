@@ -1,25 +1,6 @@
-import React, { useState, useEffect, FormEvent } from 'react';
-import {
-  Code2,
-  FolderGit2,
-  User,
-  Mail,
-  ArrowRight,
-  CheckCircle2,
-  AlertCircle,
-  RotateCcw,
-  Volume2,
-  VolumeX,
-  ExternalLink,
-  Star,
-  GitFork,
-  BookOpen,
-  Award,
-  Sparkles,
-  Layers,
-} from 'lucide-react';
+import { FormEvent, useEffect, useState } from 'react';
 
-interface Question {
+type Question = {
   id: string;
   category: string;
   difficulty: string;
@@ -58,7 +39,9 @@ interface Session {
   report?: any;
 }
 
-const API_BASE = 'http://localhost:8000/api/v1';
+const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1')
+  .replace(/\/$/, '');
+const INTERVIEW_QUESTION_COUNT = 10;
 
 export default function App() {
   // Empty by default — NO hardcoded data
@@ -72,41 +55,9 @@ export default function App() {
   const [answers, setAnswers] = useState<AnswerRecord[]>([]);
   const [report, setReport] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
-  const [questionNumber, setQuestionNumber] = useState(1);
-  const [isSpeaking, setIsSpeaking] = useState(false);
 
-  // Interactive mouse lighting state
-  const [mousePos, setMousePos] = useState({ x: -1000, y: -1000 });
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePos({ x: e.clientX, y: e.clientY });
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, []);
-
-  // Text-To-Speech for Question
-  const toggleSpeech = () => {
-    if (!('speechSynthesis' in window) || !currentQuestion) return;
-    if (isSpeaking) {
-      window.speechSynthesis.cancel();
-      setIsSpeaking(false);
-    } else {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(currentQuestion.question);
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
-      setIsSpeaking(true);
-      window.speechSynthesis.speak(utterance);
-    }
-  };
-
-  // Start Evaluation Flow
-  const handleStart = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!name.trim() || !repoUrl.trim()) return;
-
+  const startEvaluation = async (event: FormEvent) => {
+    event.preventDefault();
     setLoading(true);
 
     try {
@@ -222,35 +173,19 @@ export default function App() {
         body: JSON.stringify({ answer: currentAnswer }),
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        const record: AnswerRecord = {
-          question_id: currentQuestion.id,
-          question: currentQuestion.question,
-          concept_label: currentQuestion.concept_label || currentQuestion.category,
-          difficulty: currentQuestion.difficulty,
-          answer: currentAnswer,
-          evaluation: data.evaluation,
-          score: data.score,
-          feedback: data.feedback,
-        };
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.detail ?? 'Answer submission failed');
+      }
 
-        const updatedAnswers = [...answers, record];
-        setAnswers(updatedAnswers);
-
-        if (data.next_question) {
-          setCurrentQuestion(data.next_question);
-          setQuestionNumber(updatedAnswers.length + 1);
-        } else {
-          setCurrentQuestion(null);
-          const repRes = await fetch(`${API_BASE}/evaluations/${session.id}/report`);
-          if (repRes.ok) {
-            const repData = await repRes.json();
-            setReport(repData.report);
-          }
-        }
-        setLoading(false);
-        return;
+      setCurrentQuestion(data.next_question ?? null);
+      setAnswer('');
+      if (data.next_question) {
+        setSession((prev) => prev ? { ...prev, current_question: data.next_question } : prev);
+      } else {
+        const reportResponse = await fetch(`${API_BASE}/evaluations/${session.id}/report`);
+        const reportData = await reportResponse.json();
+        setReport(reportData.report ?? {});
       }
     } catch (err) {
       // Backend offline -> Dynamic grading based on user answer content
@@ -336,316 +271,81 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      {/* Interactive Background Elements */}
-      <div className="interactive-bg-wrapper">
-        <div className="bg-dot-grid" />
-        <div className="bg-ambient-orb-1" />
-        <div className="bg-ambient-orb-2" />
-        <div className="bg-ambient-orb-3" />
-        <div
-          className="interactive-cursor-light"
-          style={{
-            transform: `translate3d(${mousePos.x}px, ${mousePos.y}px, 0)`,
-          }}
-        />
-      </div>
+      <header className="topbar">
+        <h1>Adaptive GitHub Project Evaluator</h1>
+        <p>Repository-based adaptive technical interviews</p>
+      </header>
 
-      {/* Main Foreground Interface */}
-      <div className="app-foreground-container">
-        {/* Top Header Bar */}
-        <header className="header-bar">
-          <div className="header-inner">
-            <div className="logo-group">
-              <div className="logo-icon-box">
-                <Code2 size={20} className="logo-icon" />
-              </div>
-              <div>
-                <h1 className="logo-title">CODE_VIVA</h1>
-                <p className="logo-subtitle">Adaptive Technical Evaluator</p>
-              </div>
+      {!session && (
+        <form className="panel" onSubmit={startEvaluation}>
+          <h2>Start Evaluation</h2>
+          <label>
+            Student name
+            <input value={name} onChange={(event) => setName(event.target.value)} />
+          </label>
+          <label>
+            Email
+            <input value={email} onChange={(event) => setEmail(event.target.value)} />
+          </label>
+          <label>
+            GitHub repository URL
+            <input value={repoUrl} onChange={(event) => setRepoUrl(event.target.value)} />
+          </label>
+          <button disabled={loading} type="submit">
+            {loading ? 'Analyzing...' : 'Start interview'}
+          </button>
+        </form>
+      )}
+
+      {error && <div className="error-box">{error}</div>}
+
+      {session && (
+        <div className="layout">
+          <aside className="panel">
+            <h2>Analysis</h2>
+            <p>
+              <strong>Session:</strong> {session.id}
+            </p>
+            <p>
+              <strong>Status:</strong> {session.status}
+            </p>
+            <div>
+              <h3>Repository profile</h3>
+              <pre>{JSON.stringify(analysis ?? session.profile ?? {}, null, 2)}</pre>
             </div>
+          </aside>
 
-            {session && (
-              <button type="button" className="btn-secondary-sm" onClick={handleReset}>
-                <RotateCcw size={14} />
-                <span>New Session</span>
-              </button>
-            )}
-          </div>
-        </header>
-
-        {/* Main Body */}
-        <main className="content-container">
-          {!session ? (
-            /* Intake Setup Card */
-            <div className="intake-card">
-              <div className="intake-header">
-                <h2>Technical Evaluation Setup</h2>
-                <p>Enter candidate details and a GitHub repository URL to begin evaluation.</p>
+          <main className="panel">
+            <h2>Interview</h2>
+            {report ? (
+              <div className="report-box">
+                <h3>Final report</h3>
+                <pre>{JSON.stringify(report, null, 2)}</pre>
               </div>
-
-              <form onSubmit={handleStart} className="intake-form">
-                <div className="field-group">
-                  <label htmlFor="input-name">Candidate Name</label>
-                  <div className="input-wrap">
-                    <User size={16} className="input-icon" />
-                    <input
-                      id="input-name"
-                      type="text"
-                      required
-                      placeholder="e.g. Aditi Sharma"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                    />
-                  </div>
+            ) : currentQuestion ? (
+              <>
+                <div className="question-meta">
+                  <span>{currentQuestion.category}</span>
+                  <span>{currentQuestion.difficulty}</span>
                 </div>
-
-                <div className="field-group">
-                  <label htmlFor="input-email">Candidate Email</label>
-                  <div className="input-wrap">
-                    <Mail size={16} className="input-icon" />
-                    <input
-                      id="input-email"
-                      type="email"
-                      required
-                      placeholder="e.g. aditi.sharma@example.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div className="field-group">
-                  <label htmlFor="input-repo">GitHub Repository URL</label>
-                  <div className="input-wrap">
-                    <FolderGit2 size={16} className="input-icon" />
-                    <input
-                      id="input-repo"
-                      type="url"
-                      required
-                      placeholder="https://github.com/owner/repository"
-                      value={repoUrl}
-                      onChange={(e) => setRepoUrl(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <button type="submit" disabled={loading || !name.trim() || !repoUrl.trim()} className="btn-primary">
-                  {loading ? 'Analyzing Codebase...' : 'Start Technical Interview'}
-                  {!loading && <ArrowRight size={16} />}
+                <h3>{currentQuestion.question}</h3>
+                {currentQuestion.file_reference && <p>Reference: {currentQuestion.file_reference}</p>}
+                <textarea
+                  rows={7}
+                  value={answer}
+                  onChange={(event) => setAnswer(event.target.value)}
+                  placeholder="Type your answer here..."
+                />
+                <button onClick={submitAnswer} disabled={loading || !answer.trim()}>
+                  {loading ? 'Submitting...' : 'Submit answer'}
                 </button>
-              </form>
-            </div>
-          ) : (
-            /* Live Interview Workspace */
-            <div className="workspace-layout">
-              {/* Left Column: Repository Info */}
-              <aside className="repo-sidebar">
-                <div className="sidebar-card">
-                  <div className="sidebar-card-header">
-                    <FolderGit2 size={16} className="sidebar-icon" />
-                    <h3>Repository Details</h3>
-                  </div>
-
-                  <div className="repo-info-block">
-                    <a
-                      href={session.profile.repository_url || '#'}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="repo-link"
-                    >
-                      <span>{session.profile.full_name}</span>
-                      <ExternalLink size={13} />
-                    </a>
-
-                    {session.profile.description && (
-                      <p className="repo-desc">{session.profile.description}</p>
-                    )}
-
-                    <div className="repo-badges">
-                      {session.profile.language && (
-                        <span className="repo-badge">{session.profile.language}</span>
-                      )}
-                      {session.profile.stars !== undefined && (
-                        <span className="repo-badge">
-                          <Star size={12} /> {session.profile.stars.toLocaleString()}
-                        </span>
-                      )}
-                      {session.profile.forks !== undefined && (
-                        <span className="repo-badge">
-                          <GitFork size={12} /> {session.profile.forks.toLocaleString()}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Detected Concepts */}
-                  {session.profile.detected_concepts && (
-                    <div className="concepts-block">
-                      <span className="block-title">Detected Concepts:</span>
-                      <div className="concepts-list">
-                        {session.profile.detected_concepts.map((concept, idx) => (
-                          <span key={idx} className="concept-tag">
-                            {concept}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </aside>
-
-              {/* Right Column: Q&A Stage or Final Scorecard */}
-              <div className="main-stage">
-                {report ? (
-                  /* Final Scorecard */
-                  <div className="scorecard-card">
-                    <div className="scorecard-top">
-                      <div className="score-badge-circle">
-                        <span className="score-val">{report.overall_score}</span>
-                        <span className="score-sub">/ 100</span>
-                      </div>
-
-                      <div className="scorecard-status">
-                        <span className="status-pill-green">
-                          <CheckCircle2 size={14} /> {report.readiness}
-                        </span>
-                        <h3>Technical Interview Completed</h3>
-                        <p className="mentor-note">"{report.mentor_note}"</p>
-                      </div>
-                    </div>
-
-                    <div className="summary-columns">
-                      <div className="summary-col">
-                        <h4>Demonstrated Strengths</h4>
-                        <ul>
-                          {(report.strong_areas || []).map((s: string, i: number) => (
-                            <li key={i}>{s}</li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      <div className="summary-col">
-                        <h4>Preparation Recommendations</h4>
-                        <ul>
-                          {(report.weak_areas || []).map((w: string, i: number) => (
-                            <li key={i}>{w}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-
-                    {/* Answers Audit */}
-                    <div className="audit-section">
-                      <h4>Interview Question Summary ({answers.length})</h4>
-                      <div className="audit-list">
-                        {answers.map((a, i) => (
-                          <div key={i} className="audit-item">
-                            <div className="audit-item-header">
-                              <span className="audit-q-tag">Q{i + 1} ({a.difficulty.toUpperCase()})</span>
-                              <span className="audit-score-tag">{a.score}/100</span>
-                            </div>
-                            <p className="audit-question">{a.question}</p>
-                            <div className="audit-answer">
-                              <strong>Candidate Response:</strong> {a.answer}
-                            </div>
-                            <div className="audit-feedback">
-                              <strong>Evaluation:</strong> {a.feedback}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="scorecard-footer">
-                      <button type="button" className="btn-primary" onClick={handleReset}>
-                        <RotateCcw size={15} />
-                        <span>Start New Evaluation</span>
-                      </button>
-                    </div>
-                  </div>
-                ) : currentQuestion ? (
-                  /* Question Stage */
-                  <div className="question-stage-card">
-                    {/* Progress Header */}
-                    <div className="question-progress-bar">
-                      <div className="progress-info">
-                        <span className="q-counter">
-                          Question <strong>{questionNumber}</strong> of 3
-                        </span>
-                        <span className={`diff-badge diff-${currentQuestion.difficulty.toLowerCase()}`}>
-                          {currentQuestion.difficulty.toUpperCase()}
-                        </span>
-                      </div>
-
-                      <button
-                        type="button"
-                        className={`audio-btn ${isSpeaking ? 'active' : ''}`}
-                        onClick={toggleSpeech}
-                      >
-                        {isSpeaking ? <VolumeX size={15} /> : <Volume2 size={15} />}
-                        <span>{isSpeaking ? 'Stop Audio' : 'Listen'}</span>
-                      </button>
-                    </div>
-
-                    {/* Question */}
-                    <div className="question-content">
-                      <span className="category-title">{currentQuestion.concept_label || currentQuestion.category}</span>
-                      <h3 className="question-prompt">{currentQuestion.question}</h3>
-                    </div>
-
-                    {/* Answer Box */}
-                    <form onSubmit={handleSubmitAnswer} className="answer-form">
-                      <label htmlFor="answer-input">Your Technical Response:</label>
-                      <textarea
-                        id="answer-input"
-                        rows={6}
-                        required
-                        placeholder="Type your explanation, architectural trade-offs, and reasoning here..."
-                        value={answerText}
-                        onChange={(e) => setAnswerText(e.target.value)}
-                        disabled={loading}
-                        autoFocus
-                      />
-
-                      <div className="answer-actions">
-                        <span className="word-count">
-                          {answerText.trim() ? answerText.trim().split(/\s+/).length : 0} words
-                        </span>
-                        <button type="submit" disabled={loading || !answerText.trim()} className="btn-primary">
-                          {loading ? 'Grading Response...' : 'Submit Answer'}
-                          {!loading && <ArrowRight size={15} />}
-                        </button>
-                      </div>
-                    </form>
-
-                    {/* Past Answers History */}
-                    {answers.length > 0 && (
-                      <div className="past-answers-block">
-                        <h4>Previous Responses Graded ({answers.length})</h4>
-                        <div className="past-answers-list">
-                          {answers.map((ans, idx) => (
-                            <div key={idx} className="past-answer-item">
-                              <div className="past-answer-header">
-                                <span className="past-num">Question {idx + 1}</span>
-                                <span className="past-score">{ans.score}/100 ({ans.evaluation.toUpperCase()})</span>
-                              </div>
-                              <p className="past-q-text">{ans.question}</p>
-                              <div className="past-eval-text">
-                                <strong>AI Feedback:</strong> {ans.feedback}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          )}
-        </main>
-      </div>
+              </>
+            ) : (
+              <p>Interview complete.</p>
+            )}
+          </main>
+        </div>
+      )}
     </div>
   );
 }
