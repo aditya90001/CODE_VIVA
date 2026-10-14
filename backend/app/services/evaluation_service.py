@@ -86,21 +86,27 @@ BUILTIN_QUESTIONS: dict[str, list[dict[str, Any]]] = {
     ],
 }
 
-# Difficulty progression for the interview
+# Planned progression; answer quality can accelerate or revisit these levels.
 DIFFICULTY_ORDER = ["easy", "medium", "hard"]
 INTERVIEW_QUESTION_COUNT = 10
-FALLBACK_QUESTION_PROMPTS = [
-    "Walk me through how {concept} works in your project. What problem does it solve, and how do its main parts interact?",
-    "What alternatives could you use for {concept}? Compare their trade-offs and explain why your approach fits this project.",
-    "How would you test the {concept} implementation? Which edge cases or failure modes would you include?",
-    "If the project had ten times as much usage, what would become a bottleneck in {concept}, and how would you address it?",
-    "Describe a failure involving {concept}. How should the system detect it, recover safely, and communicate the problem?",
-    "How would you change {concept} if the project needed a new requirement? Explain the design impact and migration steps.",
-    "What assumptions does your {concept} implementation make? How would you validate those assumptions in production?",
-    "Review the security and reliability risks around {concept}. What practical safeguards would you add?",
-    "How would you measure whether {concept} is working well? Name useful signals and explain how they would guide improvements.",
-    "Summarize the most important design decision in {concept}, including its benefits, limitations, and a realistic alternative.",
-]
+FALLBACK_QUESTION_PROMPTS = {
+    "easy": [
+        "In your own words, what is {concept}, and what basic problem does it address?",
+        "Explain the central idea behind {concept} as if you were introducing it to a beginner.",
+        "What are the most important terms or building blocks someone should understand before studying {concept}?",
+    ],
+    "medium": [
+        "How do the main principles of {concept} relate to one another, and why does that relationship matter?",
+        "How is {concept} different from a closely related idea? When is each idea useful?",
+        "What assumptions does {concept} rely on, and what changes when those assumptions do not hold?",
+    ],
+    "hard": [
+        "What are the fundamental trade-offs and limitations of {concept}, and how do they affect when it is appropriate?",
+        "Under what conditions can the central idea of {concept} fail or produce misleading results? Explain why.",
+        "Compare two important approaches within {concept}. What principles explain their different strengths and weaknesses?",
+        "What deeper principle connects {concept} to another area of computer science, and where does that connection break down?",
+    ],
+}
 
 
 class EvaluationService:
@@ -191,17 +197,14 @@ class EvaluationService:
     async def generate_question(
         profile: dict[str, Any],
         asked: list[dict[str, Any]] | None = None,
+        answers: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """
-        Generate the next concept-level interview question.
-
-        Logic:
-        1. Get detected concepts from profile (set during create_session)
-        2. Rotate across detected concepts and increase the target depth
-        3. Retrieve related questions and combine them into a multi-part prompt
-        4. Fall back to the built-in question bank, then distinct project prompts
+        Select a fundamental question from the knowledge base and adapt its
+        concept and difficulty using the previous answer's score.
         """
         asked_list = asked or []
+        answer_list = answers or []
         asked_questions = {
             source_question
             for item in asked_list
@@ -210,23 +213,68 @@ class EvaluationService:
         }
         question_number = len(asked_list) + 1
 
-        target_difficulty = "medium" if question_number <= 6 else "hard"
+        planned_difficulty = (
+            "easy" if question_number <= 2 else
+            "medium" if question_number <= 6 else
+            "hard"
+        )
+        planned_level = DIFFICULTY_ORDER.index(planned_difficulty)
 
-        # Get detected concepts (stored in profile during create_session)
+        # Use repo analysis only to choose a subject area, never to ask about its code.
         detected_concepts: list[str] = profile.get("detected_concepts") or detect_concepts(profile)
         if not detected_concepts:
             detected_concepts = ["python"]
-        target_concept = detected_concepts[(question_number - 1) % len(detected_concepts)]
+
+        asked_concepts = {
+            item.get("concept", item.get("category"))
+            for item in asked_list
+            if item.get("concept", item.get("category"))
+        }
+        uncovered_concepts = [
+            concept for concept in detected_concepts if concept not in asked_concepts
+        ]
+
+        target_topic: str | None = None
+        if uncovered_concepts:
+            target_concept = uncovered_concepts[0]
+            target_level = planned_level
+        elif asked_list and answer_list:
+            previous_question = asked_list[-1]
+            previous_answer = answer_list[-1]
+            previous_level = DIFFICULTY_ORDER.index(
+                previous_question.get("difficulty", "easy")
+                if previous_question.get("difficulty") in DIFFICULTY_ORDER
+                else "easy"
+            )
+            previous_score = previous_answer.get("score", 0)
+            previous_concept = previous_question.get(
+                "concept", previous_question.get("category", "")
+            )
+
+            if previous_score >= 70:
+                target_concept = previous_concept or detected_concepts[
+                    (question_number - 1) % len(detected_concepts)
+                ]
+                target_topic = previous_question.get("topic")
+                target_level = max(planned_level, min(previous_level + 1, len(DIFFICULTY_ORDER) - 1))
+            elif previous_score < 40:
+                target_concept = previous_concept or detected_concepts[
+                    (question_number - 1) % len(detected_concepts)
+                ]
+                target_topic = previous_question.get("topic")
+                target_level = max(0, min(planned_level, previous_level - 1))
+            else:
+                target_concept = detected_concepts[
+                    (question_number - 1) % len(detected_concepts)
+                ]
+                target_level = planned_level
+        else:
+            target_concept = detected_concepts[(question_number - 1) % len(detected_concepts)]
+            target_level = planned_level
+
+        target_difficulty = DIFFICULTY_ORDER[target_level]
 
         concept_label = get_concept_label(target_concept)
-        tech_stack = EvaluationService.extract_tech_stack(profile)
-        repository_name = profile.get("full_name") or profile.get("repo") or "this project"
-        stack_description = ", ".join(tech_stack)
-        project_follow_up = (
-            f"\n\nRelate your explanation to {repository_name}, which uses "
-            f"{stack_description}. Explain how the concept fits this project and "
-            "mention a practical trade-off."
-        )
         logger.info(
             "Generating Q%d — concept: %s (%s), difficulty: %s",
             question_number,
@@ -235,16 +283,21 @@ class EvaluationService:
             target_difficulty,
         )
 
-        # ------------------------------------------------------------------
-        # 1. Try JSON knowledge base first (RAG KB + Python KB)
-        # ------------------------------------------------------------------
-        json_questions = retrieve_json_questions(
-            concept=target_concept,
-            difficulty=target_difficulty,
-            persist_dir=settings.chroma_persist_dir,
-            exclude_questions=list(asked_questions),
-            n=5,
-        )
+        # 1. Try questions from the supplied JSON knowledge base at the target
+        # topic and level, then broaden only when that subset is exhausted.
+        json_questions: list[dict[str, Any]] = []
+        topic_filters = [target_topic, None] if target_topic else [None]
+        for topic_filter in topic_filters:
+            json_questions = retrieve_json_questions(
+                concept=target_concept,
+                difficulty=target_difficulty,
+                persist_dir=settings.chroma_persist_dir,
+                exclude_questions=list(asked_questions),
+                n=5,
+                topic=topic_filter,
+            )
+            if json_questions:
+                break
 
         if json_questions:
             chosen = json_questions[0]
@@ -262,38 +315,41 @@ class EvaluationService:
             if related:
                 source_questions.append(related["question"])
                 question_text = (
-                    "Answer both parts:\n"
+                    "Answer both fundamental parts:\n"
                     f"1. {chosen['question']}\n"
                     f"2. {related['question']}\n"
-                    "Then connect the ideas: explain when each applies, give a practical "
-                    "example, and discuss one trade-off or limitation."
+                    "Then explain how the ideas relate, using a simple example."
                 )
-            question_text += project_follow_up
             logger.info("Using JSON KB question: %s...", chosen["question"][:60])
             return {
                 "id": str(uuid.uuid4()),
                 "category": target_concept,
                 "concept": target_concept,
                 "concept_label": concept_label,
-                "difficulty": target_difficulty,
+                "difficulty": chosen.get("difficulty", target_difficulty),
                 "question": question_text,
                 "source_questions": source_questions,
-                "expected_knowledge": [target_concept.replace("_", " "), *tech_stack, *chosen.get("evaluation_points", [])],
+                "expected_knowledge": [
+                    target_concept.replace("_", " "),
+                    *chosen.get("evaluation_points", []),
+                ],
                 "file_reference": None,
                 "source": "json_kb",
                 "topic": chosen.get("topic", ""),
             }
 
-        # ------------------------------------------------------------------
-        # 2. Try PDF question bank (ChromaDB) as secondary source
-        # ------------------------------------------------------------------
-        pdf_questions = retrieve_questions_for_concept(
-            concept=target_concept,
-            difficulty=target_difficulty,
-            persist_dir=settings.chroma_persist_dir,
-            exclude_questions=list(asked_questions),
-            n=3,
-        )
+        # 2. Try the PDF question bank, preserving the selected topic when possible.
+        pdf_questions: list[dict[str, Any]] = []
+        for topic_filter in ([target_topic, None] if target_topic else [None]):
+            pdf_questions = retrieve_questions_for_concept(
+                concept=topic_filter or target_concept,
+                difficulty=target_difficulty,
+                persist_dir=settings.chroma_persist_dir,
+                exclude_questions=list(asked_questions),
+                n=3,
+            )
+            if pdf_questions:
+                break
 
         if pdf_questions:
             chosen = pdf_questions[0]
@@ -311,73 +367,71 @@ class EvaluationService:
             if related:
                 source_questions.append(related["question"])
                 question_text = (
-                    "Answer both parts:\n"
+                    "Answer both fundamental parts:\n"
                     f"1. {chosen['question']}\n"
                     f"2. {related['question']}\n"
-                    "Then connect the ideas: explain when each applies, give a practical "
-                    "example, and discuss one trade-off or limitation."
+                    "Then explain how the ideas relate, using a simple example."
                 )
-            question_text += project_follow_up
             logger.info("Using PDF bank question: %s...", chosen["question"][:60])
             return {
                 "id": str(uuid.uuid4()),
                 "category": target_concept,
                 "concept": target_concept,
                 "concept_label": concept_label,
-                "difficulty": target_difficulty,
+                "difficulty": chosen.get("difficulty", target_difficulty),
                 "question": question_text,
                 "source_questions": source_questions,
-                "expected_knowledge": [target_concept.replace("_", " "), *tech_stack],
+                "expected_knowledge": [target_concept.replace("_", " ")],
                 "file_reference": None,
                 "source": "pdf_bank",
+                "topic": chosen.get("topic", ""),
             }
 
-        # ------------------------------------------------------------------
-        # 3. Fall back to built-in question bank
-        # ------------------------------------------------------------------
+        # 3. Fall back to built-in fundamental questions for this concept.
         builtin = BUILTIN_QUESTIONS.get(target_concept, [])
-        if builtin:
-            # Find a question of the right difficulty not already asked
-            candidates = [
-                q for q in builtin
-                if q["difficulty"] == target_difficulty and q["question"] not in asked_questions
-            ]
-            # If no matching difficulty, relax and pick any unasked question
-            if not candidates:
-                candidates = [q for q in builtin if q["question"] not in asked_questions]
-
-            if candidates:
-                chosen = candidates[0]
-                logger.info("Using built-in question for concept %s", target_concept)
-                return {
-                    "id": str(uuid.uuid4()),
-                    "category": target_concept,
-                    "concept": target_concept,
-                    "concept_label": concept_label,
-                    "difficulty": target_difficulty,
-                    "question": chosen["question"] + project_follow_up,
-                    "source_questions": [chosen["question"]],
-                    "expected_knowledge": [target_concept.replace("_", " "), *tech_stack],
-                    "file_reference": None,
-                    "source": "builtin",
-                }
-
-        # ------------------------------------------------------------------
-        # 4. Last resort: generic fallback
-        # ------------------------------------------------------------------
-        fallback_prompt = FALLBACK_QUESTION_PROMPTS[
-            min(question_number - 1, len(FALLBACK_QUESTION_PROMPTS) - 1)
+        candidates = [
+            question for question in builtin
+            if question["difficulty"] == target_difficulty
+            and question["question"] not in asked_questions
         ]
+        if candidates:
+            chosen = candidates[0]
+            logger.info("Using built-in fundamental question for %s", target_concept)
+            return {
+                "id": str(uuid.uuid4()),
+                "category": target_concept,
+                "concept": target_concept,
+                "concept_label": concept_label,
+                "difficulty": chosen["difficulty"],
+                "question": chosen["question"],
+                "source_questions": [chosen["question"]],
+                "expected_knowledge": [target_concept.replace("_", " ")],
+                "file_reference": None,
+                "source": "builtin",
+            }
+
+        # 4. Last resort: ask about the fundamentals of the detected concept,
+        # not how the candidate implemented it in their repository.
+        fallback_candidates = [
+            prompt.format(concept=concept_label)
+            for prompt in FALLBACK_QUESTION_PROMPTS[target_difficulty]
+        ]
+        fallback_question = next(
+            (prompt for prompt in fallback_candidates if prompt not in asked_questions),
+            fallback_candidates[0],
+        )
         return {
             "id": str(uuid.uuid4()),
-            "category": "general",
-            "concept": "general",
-            "concept_label": "General Programming",
+            "category": target_concept,
+            "concept": target_concept,
+            "concept_label": concept_label,
             "difficulty": target_difficulty,
-            "question": fallback_prompt.format(concept=concept_label) + project_follow_up,
-            "expected_knowledge": ["concept", "application", "trade-offs", "reasoning", *tech_stack],
+            "question": fallback_question,
+            "source_questions": [fallback_question],
+            "expected_knowledge": [target_concept.replace("_", " "), "fundamentals"],
             "file_reference": None,
             "source": "fallback",
+            "topic": target_topic or "",
         }
 
     @staticmethod
@@ -437,10 +491,23 @@ class EvaluationService:
         avg_score = round(sum(scores) / len(scores), 1) if scores else 0
 
         # Identify strong and weak concepts
-        strong = [a.get("concept_label") or a.get("category", "") for a in answers if a.get("score", 0) >= 70]
-        weak = [a.get("concept_label") or a.get("category", "") for a in answers if a.get("score", 0) < 70]
+        strong = [
+            a.get("concept_label") or a.get("concept") or a.get("category", "")
+            for a in answers
+            if a.get("score", 0) >= 70
+        ]
+        weak = [
+            a.get("concept_label") or a.get("concept") or a.get("category", "")
+            for a in answers
+            if a.get("score", 0) < 70
+        ]
 
         detected_concepts: list[str] = profile.get("detected_concepts") or []
+        tested_concepts = list(dict.fromkeys(
+            answer.get("concept") or answer.get("category") or ""
+            for answer in answers
+            if answer.get("concept") or answer.get("category")
+        ))
 
         if avg_score >= 80:
             readiness = "Ready for technical interview"
@@ -455,9 +522,10 @@ class EvaluationService:
         return {
             "overall_score": avg_score,
             "readiness": readiness,
-            "concepts_tested": detected_concepts,
-            "strong_areas": strong or ["project structure"],
-            "weak_areas": weak or ["needs more depth"],
+            "concepts_detected": detected_concepts,
+            "concepts_tested": tested_concepts,
+            "strong_areas": list(dict.fromkeys(strong)),
+            "weak_areas": list(dict.fromkeys(weak)),
             "mentor_note": mentor_note,
             "notable_answers": answers,
         }

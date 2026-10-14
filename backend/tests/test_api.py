@@ -71,8 +71,208 @@ def test_interview_fallback_questions_are_distinct_for_ten_turns(monkeypatch):
 
     assert len(asked) == 10
     assert len({question["question"] for question in asked}) == 10
-    assert asked[0]["difficulty"] == "medium"
+    assert asked[0]["difficulty"] == "easy"
+    assert asked[2]["difficulty"] == "medium"
     assert asked[-1]["difficulty"] == "hard"
+    assert all("your project" not in question["question"].lower() for question in asked)
+
+
+def test_strong_answer_deepens_same_topic_at_higher_difficulty(monkeypatch):
+    retrievals = []
+
+    def retrieve_questions(**kwargs):
+        retrievals.append(kwargs)
+        if kwargs["concept"] != "machine_learning":
+            return []
+        if kwargs["difficulty"] == "easy" and kwargs["topic"] is None:
+            return [{
+                "question": "What is overfitting?",
+                "topic": "Model Generalization",
+                "difficulty": "easy",
+                "evaluation_points": ["training data", "unseen data"],
+            }]
+        if (
+            kwargs["difficulty"] == "medium"
+            and kwargs["topic"] == "Model Generalization"
+        ):
+            return [{
+                "question": "How does regularization reduce overfitting?",
+                "topic": "Model Generalization",
+                "difficulty": "medium",
+                "evaluation_points": ["model complexity", "generalization"],
+            }]
+        return []
+
+    monkeypatch.setattr(
+        "backend.app.services.evaluation_service.retrieve_json_questions",
+        retrieve_questions,
+    )
+    monkeypatch.setattr(
+        "backend.app.services.evaluation_service.retrieve_questions_for_concept",
+        lambda **kwargs: [],
+    )
+    profile = {"detected_concepts": ["machine_learning"]}
+
+    first = asyncio.run(EvaluationService.generate_question(profile, []))
+    deeper = asyncio.run(
+        EvaluationService.generate_question(
+            profile,
+            [first],
+            answers=[{"score": 85}],
+        )
+    )
+
+    assert first["difficulty"] == "easy"
+    assert deeper["difficulty"] == "medium"
+    assert deeper["topic"] == first["topic"] == "Model Generalization"
+    assert deeper["question"] == "How does regularization reduce overfitting?"
+    assert any(item["difficulty"] == "medium" and item["topic"] == "Model Generalization" for item in retrievals)
+    assert "project" not in deeper["question"].lower()
+
+
+def test_weak_answer_revisits_same_topic_at_foundational_level(monkeypatch):
+    requested = []
+
+    def retrieve_questions(**kwargs):
+        requested.append(kwargs)
+        if (
+            kwargs["concept"] == "machine_learning"
+            and kwargs["difficulty"] == "easy"
+            and kwargs["topic"] == "Model Generalization"
+        ):
+            return [{
+                "question": "What is a training set?",
+                "topic": "Model Generalization",
+                "difficulty": "easy",
+                "evaluation_points": ["examples", "learning"],
+            }]
+        return []
+
+    monkeypatch.setattr(
+        "backend.app.services.evaluation_service.retrieve_json_questions",
+        retrieve_questions,
+    )
+    monkeypatch.setattr(
+        "backend.app.services.evaluation_service.retrieve_questions_for_concept",
+        lambda **kwargs: [],
+    )
+    prior_question = {
+        "question": "What is overfitting?",
+        "concept": "machine_learning",
+        "difficulty": "medium",
+        "topic": "Model Generalization",
+    }
+
+    follow_up = asyncio.run(
+        EvaluationService.generate_question(
+            {"detected_concepts": ["machine_learning"]},
+            [prior_question],
+            answers=[{"score": 25}],
+        )
+    )
+
+    assert follow_up["difficulty"] == "easy"
+    assert follow_up["topic"] == "Model Generalization"
+    assert any(item["topic"] == "Model Generalization" for item in requested)
+
+
+def test_detected_concepts_are_covered_before_adaptive_repeats(monkeypatch):
+    monkeypatch.setattr(
+        "backend.app.services.evaluation_service.retrieve_json_questions",
+        lambda **kwargs: [],
+    )
+    monkeypatch.setattr(
+        "backend.app.services.evaluation_service.retrieve_questions_for_concept",
+        lambda **kwargs: [],
+    )
+    concepts = ["python", "rag", "database"]
+    profile = {"detected_concepts": concepts}
+    questions = []
+    answers = []
+
+    for _ in concepts:
+        question = asyncio.run(
+            EvaluationService.generate_question(profile, questions, answers)
+        )
+        questions.append(question)
+        answers.append({"score": 95})
+
+    assert [question["concept"] for question in questions] == concepts
+
+    adaptive_question = asyncio.run(
+        EvaluationService.generate_question(profile, questions, answers)
+    )
+    assert adaptive_question["concept"] == "database"
+    assert adaptive_question["difficulty"] == "hard"
+
+
+def test_report_distinguishes_detected_from_actually_tested_concepts():
+    report = EvaluationService.build_report(
+        {"detected_concepts": ["python", "rag", "database"]},
+        [
+            {"concept": "python", "score": 80},
+            {"concept": "rag", "score": 45},
+            {"concept": "python", "score": 90},
+        ],
+    )
+
+    assert report["concepts_detected"] == ["python", "rag", "database"]
+    assert report["concepts_tested"] == ["python", "rag"]
+    assert report["strong_areas"] == ["python"]
+    assert report["weak_areas"] == ["rag"]
+
+
+def test_json_question_retrieval_filters_by_concept_difficulty_and_topic(monkeypatch):
+    from backend.app.services import json_kb_ingestion_service
+
+    class FakeCollection:
+        def count(self):
+            return 2
+
+        def query(self, **kwargs):
+            assert kwargs["where"] == {
+                "$and": [
+                    {"domain": {"$eq": "machine_learning"}},
+                    {"difficulty": {"$eq": "hard"}},
+                    {"topic": {"$eq": "Generalization"}},
+                ]
+            }
+            return {
+                "documents": [["Question A", "Question B"]],
+                "metadatas": [[
+                    {
+                        "question": "Question A",
+                        "topic": "Generalization",
+                        "domain": "machine_learning",
+                        "difficulty": "hard",
+                    },
+                    {
+                        "question": "Question B",
+                        "topic": "Other",
+                        "domain": "machine_learning",
+                        "difficulty": "medium",
+                    },
+                ]],
+            }
+
+    class FakeClient:
+        def get_collection(self, _):
+            return FakeCollection()
+
+    monkeypatch.setattr(
+        json_kb_ingestion_service,
+        "_get_chroma_client",
+        lambda _: FakeClient(),
+    )
+
+    questions = json_kb_ingestion_service.retrieve_json_questions(
+        concept="machine_learning",
+        difficulty="hard",
+        persist_dir="unused",
+        topic="Generalization",
+    )
+
+    assert [question["question"] for question in questions] == ["Question A"]
 
 
 def test_related_knowledge_questions_are_combined_into_one_prompt(monkeypatch):
@@ -148,14 +348,18 @@ def test_interview_completes_after_ten_submitted_answers(monkeypatch):
             "commit_hash": "abc123",
         }
 
-    async def fake_generate_question(profile, asked):
+    async def fake_generate_question(profile, asked, answers=None):
         question_number = len(asked) + 1
         return {
             "id": f"question-{question_number}",
             "category": "python",
             "concept": "python",
             "concept_label": "Python",
-            "difficulty": "medium" if question_number <= 6 else "hard",
+            "difficulty": (
+                "easy" if question_number <= 2 else
+                "medium" if question_number <= 6 else
+                "hard"
+            ),
             "question": f"Explain question {question_number} with an example and trade-offs.",
             "expected_knowledge": ["python", "example", "trade-offs"],
             "file_reference": None,
@@ -201,11 +405,13 @@ def test_question_generation_uses_repo_tech_stack():
         "topics": ["api", "llm", "rag", "postgres"],
         "description": "A Python RAG chatbot with FastAPI, Postgres, and LLM services.",
         "readme_summary": "FastAPI backend and React frontend with vector search and LLM orchestration.",
+        "detected_concepts": ["rag", "gen_ai", "backend", "database", "frontend"],
     }
 
     question = asyncio.run(EvaluationService.generate_question(profile, []))
     question_text = question["question"].lower()
-    assert any(token in question_text for token in ["fastapi", "async", "sql", "join", "rag", "chunk", "hallucination", "react", "llm"])
+    assert question["concept"] == "rag"
+    assert "in your project" not in question_text
 
 
 def test_question_generation_stays_aligned_with_repo_stack():
@@ -214,12 +420,13 @@ def test_question_generation_stays_aligned_with_repo_stack():
         "topics": ["frontend", "css", "javascript", "web"],
         "description": "A static portfolio website built with HTML, CSS, and JavaScript.",
         "readme_summary": "Responsive landing page built with semantic HTML and browser-side interactivity.",
+        "detected_concepts": ["frontend"],
     }
 
     question = asyncio.run(EvaluationService.generate_question(profile, []))
     question_text = question["question"].lower()
-    assert any(token in question_text for token in ["html", "dom", "css", "javascript", "fetch", "browser", "semantic"])
-    assert "python" not in question_text
+    assert question["concept"] == "frontend"
+    assert "in your project" not in question_text
 
 
 def test_evaluation_flow(monkeypatch):

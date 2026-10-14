@@ -13,15 +13,21 @@ answers or use supported browser speech features.
   content, and a bounded selection of source/configuration files.
 - **Concept detection:** Uses repository code, README text, description, and
   GitHub topics to identify technologies such as Python, machine learning,
-  RAG, frontend, backend, databases, and DevOps.
+  RAG, frontend, backend, databases, and DevOps. Repository contents select
+  interview subjects only; candidates are not quizzed on their source code.
 - **Knowledge-base RAG:** Indexes JSON Q&A datasets and PDF question banks in a
   persistent ChromaDB store, then retrieves questions by detected concept.
-- **Adaptive interview:** Selects ten questions across detected concepts,
-  combines related knowledge-base questions into multi-part prompts, and raises
-  the target difficulty for the final questions. Uses distinct project-focused
-  prompts when retrieval has no match.
+- **Adaptive fundamentals interview:** Selects ten conceptual questions from
+  the supplied knowledge base, starts at easy, and progresses through medium
+  and hard. Strong answers trigger a harder follow-up on the same topic; weak
+  answers revisit that topic at a more foundational level. Every detected
+  concept gets a question before the interview repeats concepts for adaptive
+  follow-ups. Related questions may be combined, and built-in fallbacks also
+  ask about fundamentals—not code or project implementation.
 - **Answer evaluation:** Scores answers and returns feedback, then builds a
   session report with overall score, readiness, strong areas, and weak areas.
+- **Interactive report:** Shows detected concepts and their coverage, with
+  expandable per-concept results and per-answer feedback.
 - **Voice interaction:** Browser speech synthesis can read questions aloud;
   recorded answers are transcribed by the backend's local Whisper model and
   placed in the editable answer field. No paid speech API is used.
@@ -74,18 +80,23 @@ flowchart TD
 1. The frontend sends the candidate's name, email, and GitHub URL to
    `POST /api/v1/evaluations`.
 2. The backend fetches the public repository profile and selected files from
-   GitHub, then detects concepts from the returned code and repository text.
+   GitHub, then uses repository signals to select relevant subject areas. It
+   does not generate questions about the candidate's code.
 3. The evaluation service searches the JSON question collection in ChromaDB
-   for an unused question related to the selected concept. It next tries the
-   PDF question collection, then the built-in fallback bank.
+   for an unused fundamental question at the planned difficulty and topic. It
+   next tries the PDF question collection, then concept-level built-in
+   questions and neutral fundamentals-only prompts.
 4. The question and session are saved to the relational database and returned
    to the frontend.
 5. The candidate types an answer or records it in the browser. The backend
    transcribes the audio locally with Whisper; the transcript can be edited
    before submission.
-6. The backend evaluates the answer, stores its score and feedback, and returns
-   the next question. After ten answers, it marks the interview complete and
-   generates a report.
+6. The backend evaluates the answer, stores its score and feedback, and adapts
+   the next question. Every detected concept is covered once before adaptive
+   follow-ups begin. Strong answers increase difficulty while staying on the
+   same topic; weak answers revisit the topic at an easier level. After ten
+   answers, it marks the interview complete and generates a concept coverage
+   report with expandable answer details.
 
 ### Knowledge-base indexing and retrieval
 

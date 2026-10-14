@@ -30,6 +30,7 @@ export interface AnswerRecord {
 export interface FinalReport {
   overall_score: number;
   readiness: string;
+  concepts_detected?: string[];
   concepts_tested: string[];
   strong_areas: string[];
   weak_areas: string[];

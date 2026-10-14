@@ -215,8 +215,9 @@ def retrieve_json_questions(
     persist_dir: str,
     exclude_questions: list[str] | None = None,
     n: int = 5,
+    topic: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Retrieve concept-level questions from json_question_bank via semantic vector search."""
+    """Retrieve unasked questions for a concept, difficulty, and optional topic."""
     client = _get_chroma_client(persist_dir)
     if client is None:
         return []
@@ -231,14 +232,19 @@ def retrieve_json_questions(
         return []
 
     try:
-        # Try semantic search matching concept and difficulty first
-        search_term = concept.replace("_", " ")
+        search_term = (topic or concept).replace("_", " ")
         domain = "machine_learning" if concept == "ml" else concept
         results = collection.query(
             query_texts=[search_term],
             n_results=min(n + len(exclude) + 10, total),
             include=["documents", "metadatas"],
-            where={"domain": domain},
+            where={
+                "$and": [
+                    {"domain": {"$eq": domain}},
+                    {"difficulty": {"$eq": difficulty}},
+                    *([{"topic": {"$eq": topic}}] if topic else []),
+                ]
+            },
         )
         docs = results.get("documents", [[]])[0]
         metas = results.get("metadatas", [[]])[0]
@@ -246,13 +252,18 @@ def retrieve_json_questions(
         questions: list[dict[str, Any]] = []
         for _, meta in zip(docs, metas):
             q_text = meta.get("question", "")
-            if q_text and q_text not in exclude:
+            if (
+                q_text
+                and q_text not in exclude
+                and meta.get("difficulty") == difficulty
+                and (not topic or meta.get("topic") == topic)
+            ):
                 questions.append({
                     "question": q_text,
                     "answer": meta.get("answer", ""),
                     "topic": meta.get("topic", concept),
                     "domain": meta.get("domain", concept),
-                    "difficulty": meta.get("difficulty", difficulty),
+                    "difficulty": meta["difficulty"],
                     "evaluation_points": meta.get("evaluation_points", []),
                 })
             if len(questions) >= n:

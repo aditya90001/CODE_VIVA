@@ -201,7 +201,11 @@ async def next_question(session_id: str, db: Session = Depends(get_db)) -> Quest
         return QuestionResponse(session_id=session.id, question=session.current_question)
 
     if not session.current_question:
-        question = await EvaluationService.generate_question(session.profile or {}, session.questions or [])
+        question = await EvaluationService.generate_question(
+            session.profile or {},
+            session.questions or [],
+            answers=session.answers or [],
+        )
         session.current_question = question
         session.questions = list(session.questions or []) + [question]
         db.add(session)
@@ -242,7 +246,11 @@ async def submit_answer(session_id: str, payload: AnswerSubmission, db: Session 
         session.status = "completed"
         session.report = EvaluationService.build_report(session.profile or {}, session.answers or [])
     else:
-        next_q = await EvaluationService.generate_question(session.profile or {}, session.questions or [])
+        next_q = await EvaluationService.generate_question(
+            session.profile or {},
+            session.questions or [],
+            answers=session.answers or [],
+        )
         session.current_question = next_q
         session.questions = list(session.questions or []) + [next_q]
         session.status = "in_progress"
