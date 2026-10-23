@@ -382,33 +382,62 @@ still be typed into the same field.
 
 ### Deploying on Render
 
-Deploy the backend as a Render **Web Service** from the repository root:
+The backend is containerized by the root [`Dockerfile`](./Dockerfile).
+Create a Render **Web Service**, connect this repository, and select **Docker**
+as the runtime. Set the Dockerfile path to `./Dockerfile` (the repository
+root). Render builds and runs the image; do not enter separate pip build/start
+commands.
 
-- **Build command:** `pip install -r backend/requirements.txt`
-- **Start command:** `uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT`
-- Configure `CORS_ORIGINS` with the deployed frontend origin.
-- Configure `CHROMA_PERSIST_DIR` to a persistent disk path if the Chroma
-  question index should survive service restarts.
-- Set `WHISPER_MODEL=tiny` to use the smallest default Whisper model.
-- Set `STT_LANGUAGE` if interviews should transcribe a known language rather
-  than asking Whisper to detect it.
+Configure these backend environment variables in Render (never bake secrets
+into the Docker image):
+
+- `APP_ENV=production`
+- `DATABASE_URL`: create a Render PostgreSQL database and use its **Internal
+  Database URL**, changing the scheme from `postgres://` or `postgresql://` to
+  `postgresql+psycopg://` for this project's Psycopg 3 driver.
+- `CORS_ORIGINS`: the exact deployed frontend origin, for example
+  `https://your-frontend.onrender.com` (no path or trailing slash). Multiple
+  origins can be comma-separated.
+- `WHISPER_MODEL=tiny` to use the smallest default Whisper model.
+- `STT_LANGUAGE` if interviews should transcribe a known language rather than
+  asking Whisper to detect it.
+
+The image places Chroma data and the Whisper model cache under `/var/data`.
+Attach a Render persistent disk mounted at `/var/data` if these should survive
+restarts and deployments. Without a disk, files there are ephemeral; the JSON
+question bank is re-ingested from the image's `knowledge_base/` files at
+startup, and Whisper may download its model again. A persistent disk can
+affect service availability and may require a paid Render plan.
+
+To build and run the same image locally from the repository root:
+
+```bash
+docker build -t code-viva-backend .
+docker run --rm -p 8000:8000 --env-file .env code-viva-backend
+```
+
+Check `http://localhost:8000/health` for `{"status":"ok", ...}`. The
+`.dockerignore` excludes `.env`, local databases, and local Chroma data from the
+image. Keep database credentials in Render's environment settings and do not
+commit `.env`.
 
 Deploy `frontend/` as a Render **Static Site**:
 
+- **Root directory:** `frontend`
 - **Build command:** `npm install && npm run build`
 - **Publish directory:** `dist`
 - Set `VITE_API_BASE_URL` to the backend URL ending in `/api/v1`, for example
   `https://your-api.onrender.com/api/v1`.
 - Include the frontend's exact Render URL in the backend `CORS_ORIGINS` value.
 
-Whisper downloads its model the first time speech transcription is requested.
-Keep enough disk available for the model cache. If you attach a persistent disk
-at `/var/data`, set `HF_HOME=/var/data/huggingface` and
-`CHROMA_PERSIST_DIR=/var/data/chroma` so both the model cache and question index
-survive restarts. CPU transcription needs more memory and compute than a basic API
-service; choose a Render instance with sufficient resources for the selected
-model. If the instance cannot load Whisper or the audio cannot be transcribed,
-the endpoint returns an error and candidates can type their answers instead.
+The image uses one Uvicorn worker, limits numerical-library threading, and
+loads the Whisper runtime/model only when speech transcription is requested.
+This reduces baseline memory use for a 512 MB instance, but does not guarantee
+the entire service stays below 512 MB: Chroma indexing at startup and
+transcription can temporarily use additional memory. Keep `WHISPER_MODEL=tiny`;
+if transcription cannot load within the available memory, the endpoint returns
+an error and candidates can type their answers instead. The Docker image size
+is not a limit on runtime memory.
 
 ## Evaluation Notes
 

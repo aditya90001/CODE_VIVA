@@ -1,0 +1,935 @@
+{
+  "dataset_name": "FastAPI Interview Questions and Answers",
+  "source_updated": "2026-07-29",
+  "description": "Structured FastAPI interview Q&A dataset for retrieval-augmented generation (RAG). Answers are concise, standalone, and tagged by topic and difficulty.",
+  "schema_version": "1.0",
+  "records": [
+    {
+      "id": 1,
+      "topic": "FastAPI Fundamentals",
+      "difficulty": "Beginner",
+      "question": "What is FastAPI?",
+      "answer": "FastAPI is a modern, high-performance Python web framework for building APIs. It is built on Starlette for web handling and Pydantic for data validation.",
+      "keywords": [
+        "FastAPI",
+        "Python",
+        "Starlette",
+        "Pydantic",
+        "REST",
+        "API"
+      ]
+    },
+    {
+      "id": 2,
+      "topic": "FastAPI Fundamentals",
+      "difficulty": "Beginner",
+      "question": "Why is FastAPI becoming popular for API development?",
+      "answer": "FastAPI combines high performance with a simple development experience. Key reasons include ASGI support, asynchronous programming, automatic Pydantic validation, interactive Swagger UI and ReDoc documentation, type hints, and reduced boilerplate.",
+      "keywords": [
+        "performance",
+        "ASGI",
+        "async",
+        "validation",
+        "documentation",
+        "type",
+        "hints"
+      ]
+    },
+    {
+      "id": 3,
+      "topic": "FastAPI Fundamentals",
+      "difficulty": "Beginner",
+      "question": "What are the main features of FastAPI?",
+      "answer": "Main features include high performance, request validation, automatic API documentation, dependency injection, async/await support, security utilities, and integration with SQL and NoSQL databases.",
+      "keywords": [
+        "features",
+        "dependency",
+        "injection",
+        "async",
+        "security",
+        "databases"
+      ]
+    },
+    {
+      "id": 4,
+      "topic": "Setup and Basics",
+      "difficulty": "Beginner",
+      "question": "How do you install FastAPI and run a FastAPI application?",
+      "answer": "Install with `pip install fastapi uvicorn`. Create `app = FastAPI()` in `main.py`, define routes, and run `uvicorn main:app --reload`. Here, `main` is the module name, `app` is the application object, and `--reload` restarts the server when code changes.",
+      "keywords": [
+        "installation",
+        "Uvicorn",
+        "server",
+        "command"
+      ]
+    },
+    {
+      "id": 5,
+      "topic": "Setup and Basics",
+      "difficulty": "Beginner",
+      "question": "What is the structure of a basic FastAPI application?",
+      "answer": "Import FastAPI, instantiate it with `app = FastAPI()`, define path operations using decorators such as `@app.get('/')`, and return Python objects such as dictionaries that FastAPI serializes to JSON.",
+      "keywords": [
+        "application",
+        "instance",
+        "routes",
+        "decorators",
+        "JSON"
+      ]
+    },
+    {
+      "id": 6,
+      "topic": "Routing",
+      "difficulty": "Beginner",
+      "question": "What are path operations in FastAPI?",
+      "answer": "A path operation connects an HTTP method and URL path to a Python function. For example, `@app.get('/users')` invokes its function when a GET request is made to `/users`. Common methods include GET, POST, PUT, PATCH, and DELETE.",
+      "keywords": [
+        "routes",
+        "endpoints",
+        "HTTP",
+        "methods",
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE"
+      ]
+    },
+    {
+      "id": 7,
+      "topic": "Request Handling",
+      "difficulty": "Beginner",
+      "question": "What is the difference between path parameters and query parameters?",
+      "answer": "Path parameters are part of the URL and usually identify a resource, such as `/users/5` with `/users/{id}`. Query parameters follow `?` and usually filter or customize results, such as `/users?page=2`. Path parameters are normally required; query parameters are often optional.",
+      "keywords": [
+        "path",
+        "parameters",
+        "query",
+        "parameters",
+        "filtering",
+        "pagination"
+      ]
+    },
+    {
+      "id": 8,
+      "topic": "Request Handling",
+      "difficulty": "Beginner",
+      "question": "How do you handle request bodies in FastAPI?",
+      "answer": "Define a Pydantic model, such as `class Student(BaseModel): name: str; age: int`, and use it as an endpoint parameter. FastAPI parses and validates the incoming JSON body and returns validation errors for invalid data.",
+      "keywords": [
+        "request",
+        "body",
+        "Pydantic",
+        "POST",
+        "JSON",
+        "validation"
+      ]
+    },
+    {
+      "id": 9,
+      "topic": "Validation and Schemas",
+      "difficulty": "Beginner",
+      "question": "What is Pydantic and why is it used in FastAPI?",
+      "answer": "Pydantic is a Python library for validating, parsing, and serializing data using type annotations. FastAPI uses Pydantic models to validate request bodies, convert compatible input types, produce useful errors, and document schemas.",
+      "keywords": [
+        "Pydantic",
+        "validation",
+        "serialization",
+        "type",
+        "hints",
+        "schemas"
+      ]
+    },
+    {
+      "id": 10,
+      "topic": "Validation and Schemas",
+      "difficulty": "Intermediate",
+      "question": "What are response models in FastAPI?",
+      "answer": "A response model defines and documents the expected response structure. Using `response_model=User` validates and filters output to the declared fields, helping maintain consistent responses and avoid accidentally exposing fields such as passwords.",
+      "keywords": [
+        "response_model",
+        "output",
+        "filtering",
+        "schema",
+        "security"
+      ]
+    },
+    {
+      "id": 11,
+      "topic": "HTTP and Responses",
+      "difficulty": "Beginner",
+      "question": "How do you return custom HTTP status codes?",
+      "answer": "Set `status_code` on a route decorator, for example `@app.post('/users', status_code=201)`. Common codes include 200 OK, 201 Created, 204 No Content, 400 Bad Request, 401 Unauthorized, 403 Forbidden, 404 Not Found, and 500 Internal Server Error.",
+      "keywords": [
+        "status",
+        "codes",
+        "HTTP",
+        "201",
+        "404"
+      ]
+    },
+    {
+      "id": 12,
+      "topic": "Documentation",
+      "difficulty": "Beginner",
+      "question": "What is automatic API documentation in FastAPI?",
+      "answer": "FastAPI generates interactive OpenAPI documentation from routes, type hints, and models. Swagger UI is available at `/docs` and ReDoc at `/redoc`, enabling users to inspect and test endpoints.",
+      "keywords": [
+        "OpenAPI",
+        "Swagger",
+        "UI",
+        "ReDoc",
+        "docs"
+      ]
+    },
+    {
+      "id": 13,
+      "topic": "Validation and Schemas",
+      "difficulty": "Beginner",
+      "question": "How do you validate request data in FastAPI?",
+      "answer": "Use Python type annotations, Pydantic models, and validation helpers such as `Query`, `Path`, and `Field`. Invalid input automatically produces a structured validation response, usually with HTTP 422 for request validation failures.",
+      "keywords": [
+        "request",
+        "validation",
+        "Pydantic",
+        "Query",
+        "Path",
+        "Field",
+        "422"
+      ]
+    },
+    {
+      "id": 14,
+      "topic": "Project Architecture",
+      "difficulty": "Intermediate",
+      "question": "How do you organize routes in large FastAPI projects?",
+      "answer": "Split related endpoints into modules and define them with `APIRouter`. Include each router in the main application using `app.include_router(router)`. A project may have separate router modules for users, products, and orders.",
+      "keywords": [
+        "project",
+        "structure",
+        "APIRouter",
+        "modular",
+        "routes"
+      ]
+    },
+    {
+      "id": 15,
+      "topic": "Project Architecture",
+      "difficulty": "Beginner",
+      "question": "What is the APIRouter class?",
+      "answer": "`APIRouter` groups related routes and supports prefixes, tags, dependencies, and shared configuration. It is similar in purpose to Flask Blueprints and helps keep large applications modular. Register it using `app.include_router(router)`.",
+      "keywords": [
+        "APIRouter",
+        "prefix",
+        "tags",
+        "routes",
+        "blueprints"
+      ]
+    },
+    {
+      "id": 16,
+      "topic": "Files and Forms",
+      "difficulty": "Intermediate",
+      "question": "How do you handle file uploads in FastAPI?",
+      "answer": "Use `UploadFile` with `File(...)`, for example `async def upload_file(file: UploadFile = File(...))`. `UploadFile` exposes metadata such as filename and content type and uses a spooled file, making it suitable for larger uploads. Validate file size and content before trusting or storing it.",
+      "keywords": [
+        "UploadFile",
+        "File",
+        "multipart",
+        "upload"
+      ]
+    },
+    {
+      "id": 17,
+      "topic": "Files and Forms",
+      "difficulty": "Beginner",
+      "question": "How do you serve static files in FastAPI?",
+      "answer": "Use `StaticFiles` and mount it, for example `app.mount('/static', StaticFiles(directory='static'), name='static')`. Files in the directory can then be served under the `/static` URL prefix.",
+      "keywords": [
+        "StaticFiles",
+        "CSS",
+        "JavaScript",
+        "images"
+      ]
+    },
+    {
+      "id": 18,
+      "topic": "Templates",
+      "difficulty": "Intermediate",
+      "question": "How do you render HTML templates in FastAPI?",
+      "answer": "Use `Jinja2Templates(directory='templates')` and return `templates.TemplateResponse` with the request and template context. The HTML file is stored in the templates directory. Install the appropriate Jinja2 dependency.",
+      "keywords": [
+        "Jinja2Templates",
+        "HTML",
+        "rendering",
+        "templates"
+      ]
+    },
+    {
+      "id": 19,
+      "topic": "Files and Forms",
+      "difficulty": "Beginner",
+      "question": "How do you handle form data in FastAPI?",
+      "answer": "Use `Form(...)` parameters to receive form fields, commonly encoded as `application/x-www-form-urlencoded` or multipart form data. For file uploads, use `File` and `UploadFile`. Do not return passwords or other sensitive fields in responses.",
+      "keywords": [
+        "Form",
+        "login",
+        "form",
+        "data"
+      ]
+    },
+    {
+      "id": 20,
+      "topic": "Documentation",
+      "difficulty": "Beginner",
+      "question": "What are tags in FastAPI?",
+      "answer": "Tags group endpoints in generated API documentation. Set `tags=['Users']` on a route or router so related endpoints appear under the same section in Swagger UI.",
+      "keywords": [
+        "tags",
+        "Swagger",
+        "documentation",
+        "grouping"
+      ]
+    },
+    {
+      "id": 21,
+      "topic": "Dependencies",
+      "difficulty": "Beginner",
+      "question": "What are dependencies in FastAPI?",
+      "answer": "Dependencies are reusable functions, classes, or callables that FastAPI executes and supplies to endpoints. They are commonly used for authentication, database sessions, configuration, and shared validation.",
+      "keywords": [
+        "Depends",
+        "dependencies",
+        "reuse",
+        "authentication",
+        "database"
+      ]
+    },
+    {
+      "id": 22,
+      "topic": "Async Programming",
+      "difficulty": "Intermediate",
+      "question": "Explain FastAPI's asynchronous programming model.",
+      "answer": "An `async def` endpoint can use `await` with awaitable I/O operations so the event loop can work on other tasks while one operation waits. Async is useful for compatible database or network clients; blocking calls inside async code can still stall the event loop.",
+      "keywords": [
+        "async",
+        "await",
+        "concurrency",
+        "I/O",
+        "event",
+        "loop"
+      ]
+    },
+    {
+      "id": 23,
+      "topic": "Dependencies",
+      "difficulty": "Beginner",
+      "question": "What is dependency injection in FastAPI?",
+      "answer": "Dependency injection is a design pattern in which FastAPI resolves and supplies required values to an endpoint rather than requiring the endpoint to construct them itself. It improves reuse, modularity, and testability.",
+      "keywords": [
+        "dependency",
+        "injection",
+        "Depends",
+        "modularity",
+        "testing"
+      ]
+    },
+    {
+      "id": 24,
+      "topic": "Dependencies",
+      "difficulty": "Beginner",
+      "question": "What is the Depends() function?",
+      "answer": "`Depends()` declares a dependency for FastAPI to resolve and inject. For example, `user = Depends(verify_user)` makes the endpoint receive the result of `verify_user`. Dependencies can also depend on other dependencies.",
+      "keywords": [
+        "Depends",
+        "dependency",
+        "resolution",
+        "authentication"
+      ]
+    },
+    {
+      "id": 25,
+      "topic": "Databases",
+      "difficulty": "Intermediate",
+      "question": "How do you connect FastAPI to a SQL database?",
+      "answer": "A common approach is SQLAlchemy with a database driver. Configure a database URL, create an engine and session factory, and provide sessions to routes through a dependency that reliably closes each session. SQLite, PostgreSQL, and MySQL are common choices.",
+      "keywords": [
+        "SQLAlchemy",
+        "SQL",
+        "database",
+        "engine",
+        "session",
+        "PostgreSQL",
+        "SQLite"
+      ]
+    },
+    {
+      "id": 26,
+      "topic": "Databases",
+      "difficulty": "Intermediate",
+      "question": "How do you connect FastAPI with MongoDB?",
+      "answer": "Use a MongoDB client library such as PyMongo to connect to MongoDB, select a database, and access collections. Choose a synchronous or asynchronous client that matches the application design, and manage client lifecycle and connection settings carefully.",
+      "keywords": [
+        "MongoDB",
+        "PyMongo",
+        "collections",
+        "NoSQL"
+      ]
+    },
+    {
+      "id": 27,
+      "topic": "Databases",
+      "difficulty": "Beginner",
+      "question": "What ORM libraries are commonly used with FastAPI?",
+      "answer": "Common ORM choices include SQLAlchemy, SQLModel, Tortoise ORM, and Peewee. ORMs map database records to Python objects and can simplify queries, though developers still need to understand SQL, transactions, indexes, and query performance.",
+      "keywords": [
+        "ORM",
+        "SQLAlchemy",
+        "SQLModel",
+        "Tortoise",
+        "Peewee"
+      ]
+    },
+    {
+      "id": 28,
+      "topic": "CRUD",
+      "difficulty": "Beginner",
+      "question": "How do you perform CRUD operations in FastAPI?",
+      "answer": "CRUD means Create, Read, Update, and Delete. These are commonly exposed through POST, GET, PUT/PATCH, and DELETE endpoints. Production applications generally persist records in a database rather than a process-local list.",
+      "keywords": [
+        "CRUD",
+        "Create",
+        "Read",
+        "Update",
+        "Delete",
+        "database"
+      ]
+    },
+    {
+      "id": 29,
+      "topic": "Authentication and Security",
+      "difficulty": "Intermediate",
+      "question": "How do you implement authentication in FastAPI?",
+      "answer": "Authentication verifies a user's identity. FastAPI provides security utilities such as OAuth2 helpers and bearer-token extraction, but the application must implement credential verification, secure password hashing, token issuance and validation, and authorization checks. JWT is one possible token format.",
+      "keywords": [
+        "authentication",
+        "OAuth2",
+        "JWT",
+        "bearer",
+        "token"
+      ]
+    },
+    {
+      "id": 30,
+      "topic": "Authentication and Security",
+      "difficulty": "Intermediate",
+      "question": "What is OAuth2 in FastAPI?",
+      "answer": "OAuth2 is an authorization framework for delegated access. FastAPI provides helpers such as `OAuth2PasswordBearer` to describe how bearer tokens are obtained and supplied. That helper extracts a token; it does not by itself create tokens, validate JWTs, or implement a complete authentication system.",
+      "keywords": [
+        "OAuth2",
+        "access",
+        "tokens",
+        "OAuth2PasswordBearer",
+        "security"
+      ]
+    },
+    {
+      "id": 31,
+      "topic": "Authentication and Security",
+      "difficulty": "Intermediate",
+      "question": "How do JWT tokens work in FastAPI?",
+      "answer": "A JWT is a token format that can carry claims. A server issues a token after authentication, and the client sends it in an `Authorization: Bearer <token>` header. The server must verify its signature and relevant claims such as expiry and issuer. JWT payloads are encoded, not inherently encrypted.",
+      "keywords": [
+        "JWT",
+        "token",
+        "claims",
+        "signature",
+        "expiry",
+        "bearer"
+      ]
+    },
+    {
+      "id": 32,
+      "topic": "Authentication and Security",
+      "difficulty": "Beginner",
+      "question": "What is the difference between authentication and authorization?",
+      "answer": "Authentication answers 'Who are you?' and verifies identity. Authorization answers 'What are you allowed to do?' and checks permissions or roles. A logged-in user may be authenticated but still lack permission to access an administrator-only endpoint.",
+      "keywords": [
+        "authentication",
+        "authorization",
+        "roles",
+        "permissions"
+      ]
+    },
+    {
+      "id": 33,
+      "topic": "Authentication and Security",
+      "difficulty": "Intermediate",
+      "question": "How do you hash passwords in FastAPI?",
+      "answer": "Never store plain-text passwords. Use a password-hashing algorithm designed for passwords, such as Argon2id or bcrypt, through a maintained library. Store the resulting hash and verify submitted passwords with the library's verification function. Do not encrypt passwords reversibly or log them.",
+      "keywords": [
+        "password",
+        "hashing",
+        "Argon2",
+        "bcrypt",
+        "Passlib",
+        "security"
+      ]
+    },
+    {
+      "id": 34,
+      "topic": "Middleware",
+      "difficulty": "Intermediate",
+      "question": "What is middleware in FastAPI?",
+      "answer": "Middleware wraps request and response processing at the application level. It can run code before a request reaches a route and after a response is produced. Typical uses include request logging, timing, and adding headers.",
+      "keywords": [
+        "middleware",
+        "request",
+        "response",
+        "logging"
+      ]
+    },
+    {
+      "id": 35,
+      "topic": "Middleware",
+      "difficulty": "Intermediate",
+      "question": "How do you create custom middleware?",
+      "answer": "Use `@app.middleware('http')` and an async function that accepts `request` and `call_next`. Record a start time, await `call_next(request)`, then add a response header such as `X-Process-Time` before returning the response.",
+      "keywords": [
+        "custom",
+        "middleware",
+        "process",
+        "time",
+        "headers"
+      ]
+    },
+    {
+      "id": 36,
+      "topic": "Error Handling",
+      "difficulty": "Beginner",
+      "question": "How do you handle exceptions in FastAPI?",
+      "answer": "Raise `HTTPException` when a route needs to return an HTTP error, such as 404 when a record is missing. Use custom exception handlers for application-specific errors and avoid exposing stack traces or secrets to clients.",
+      "keywords": [
+        "exceptions",
+        "HTTPException",
+        "error",
+        "handling",
+        "404"
+      ]
+    },
+    {
+      "id": 37,
+      "topic": "Error Handling",
+      "difficulty": "Beginner",
+      "question": "What is HTTPException?",
+      "answer": "`HTTPException` is FastAPI's exception for returning an HTTP error status and detail message. Example: `raise HTTPException(status_code=404, detail='Student not found')`. Common statuses include 400, 401, 403, and 404.",
+      "keywords": [
+        "HTTPException",
+        "status",
+        "code",
+        "detail"
+      ]
+    },
+    {
+      "id": 38,
+      "topic": "Error Handling",
+      "difficulty": "Intermediate",
+      "question": "How do you create custom exception handlers?",
+      "answer": "Define a handler with `@app.exception_handler(ExceptionType)` that accepts the request and exception and returns a response, such as `JSONResponse`. This centralizes error formatting for a custom exception type.",
+      "keywords": [
+        "exception_handler",
+        "JSONResponse",
+        "custom",
+        "exceptions"
+      ]
+    },
+    {
+      "id": 39,
+      "topic": "Validation and Schemas",
+      "difficulty": "Intermediate",
+      "question": "How do you validate query parameters?",
+      "answer": "Use type annotations and `Query()` to define query parameter constraints, such as `min_length`, `max_length`, `ge`, and `le`. For example, `keyword: str = Query(..., min_length=3)` makes the parameter required and enforces a minimum length.",
+      "keywords": [
+        "Query",
+        "query",
+        "parameters",
+        "validation",
+        "constraints"
+      ]
+    },
+    {
+      "id": 40,
+      "topic": "Background Processing",
+      "difficulty": "Intermediate",
+      "question": "What are Background Tasks?",
+      "answer": "FastAPI's `BackgroundTasks` can run small tasks after the response is sent, such as lightweight notifications or log operations. It is not a durable job queue; long-running, CPU-heavy, or critical jobs are usually better handled by a dedicated worker system.",
+      "keywords": [
+        "BackgroundTasks",
+        "background",
+        "jobs",
+        "notifications"
+      ]
+    },
+    {
+      "id": 41,
+      "topic": "Files and Forms",
+      "difficulty": "Intermediate",
+      "question": "How do you upload multiple files?",
+      "answer": "Accept a list of `UploadFile` values, for example `files: list[UploadFile] = File(...)`. Validate file type, size, and contents, and close files when appropriate. The client sends a multipart form request containing multiple files.",
+      "keywords": [
+        "multiple",
+        "file",
+        "upload",
+        "UploadFile",
+        "File"
+      ]
+    },
+    {
+      "id": 42,
+      "topic": "Pagination",
+      "difficulty": "Beginner",
+      "question": "How do you implement pagination in FastAPI?",
+      "answer": "Accept query parameters such as `skip` and `limit`, validate their ranges, and apply them to the database query. For example, `students[skip:skip + limit]` demonstrates slicing in memory, but database-level pagination is preferable for large datasets.",
+      "keywords": [
+        "pagination",
+        "skip",
+        "limit",
+        "filtering",
+        "database"
+      ]
+    },
+    {
+      "id": 43,
+      "topic": "Middleware and CORS",
+      "difficulty": "Intermediate",
+      "question": "What is CORS and how do you enable it?",
+      "answer": "CORS is a browser mechanism that controls whether frontend code from one origin may access another origin. Add `CORSMiddleware` and configure allowed origins, methods, headers, and credentials. In production, restrict origins to trusted sites; wildcard origins are not appropriate for credentialed requests.",
+      "keywords": [
+        "CORS",
+        "CORSMiddleware",
+        "origins",
+        "headers",
+        "credentials"
+      ]
+    },
+    {
+      "id": 44,
+      "topic": "Configuration",
+      "difficulty": "Beginner",
+      "question": "How do you configure environment variables in FastAPI?",
+      "answer": "Keep configuration such as database URLs and secret keys outside source code, using environment variables or a `.env` file for local development. Read values with `os.getenv` or a settings library, and never commit real secrets to version control.",
+      "keywords": [
+        "environment",
+        "variables",
+        "dotenv",
+        "configuration",
+        "secrets"
+      ]
+    },
+    {
+      "id": 45,
+      "topic": "Async Programming",
+      "difficulty": "Intermediate",
+      "question": "How does async/await improve FastAPI performance?",
+      "answer": "For I/O-bound workloads, `await` lets the event loop switch to other work while a network or database operation is pending. It does not automatically speed up CPU-bound work, and blocking libraries can eliminate the benefit. Use compatible asynchronous libraries where appropriate.",
+      "keywords": [
+        "async",
+        "await",
+        "I/O",
+        "performance",
+        "concurrency"
+      ]
+    },
+    {
+      "id": 46,
+      "topic": "Async Programming",
+      "difficulty": "Intermediate",
+      "question": "What is the difference between synchronous and asynchronous endpoints?",
+      "answer": "A synchronous endpoint uses `def`; FastAPI runs it in a thread pool. An asynchronous endpoint uses `async def` and should await non-blocking operations. Use async for compatible I/O clients; use sync for blocking libraries, and move substantial CPU-bound work to suitable workers or processes.",
+      "keywords": [
+        "sync",
+        "async",
+        "def",
+        "thread",
+        "pool",
+        "blocking",
+        "CPU-bound"
+      ]
+    },
+    {
+      "id": 47,
+      "topic": "Real-Time Communication",
+      "difficulty": "Intermediate",
+      "question": "What are WebSockets in FastAPI?",
+      "answer": "WebSockets provide a persistent, bidirectional connection that allows client and server to exchange messages without opening a new HTTP request for each message. They are useful for chat, live notifications, and real-time dashboards.",
+      "keywords": [
+        "WebSocket",
+        "real",
+        "time",
+        "bidirectional",
+        "persistent",
+        "connection"
+      ]
+    },
+    {
+      "id": 48,
+      "topic": "Real-Time Communication",
+      "difficulty": "Intermediate",
+      "question": "How do you implement WebSocket communication?",
+      "answer": "Create a route with `@app.websocket('/ws')`, accept the connection using `await websocket.accept()`, then receive and send messages with methods such as `receive_text()` and `send_text()`. Production implementations should handle disconnects and connection lifecycle.",
+      "keywords": [
+        "WebSocket",
+        "websocket.accept",
+        "receive_text",
+        "send_text"
+      ]
+    },
+    {
+      "id": 49,
+      "topic": "Testing",
+      "difficulty": "Intermediate",
+      "question": "How do you test FastAPI applications?",
+      "answer": "Use pytest with FastAPI's `TestClient` to call endpoints without running a separate server. Test status codes, response bodies, validation failures, authentication, database behavior, and error handling. Use dependency overrides or test databases to isolate tests.",
+      "keywords": [
+        "pytest",
+        "TestClient",
+        "API",
+        "testing"
+      ]
+    },
+    {
+      "id": 50,
+      "topic": "Testing",
+      "difficulty": "Beginner",
+      "question": "What is TestClient in FastAPI?",
+      "answer": "`TestClient` simulates HTTP requests against the application in tests. It supports methods such as GET and POST and lets tests inspect status codes and JSON responses without starting a live server. It is commonly used with pytest.",
+      "keywords": [
+        "TestClient",
+        "pytest",
+        "HTTP",
+        "requests"
+      ]
+    },
+    {
+      "id": 51,
+      "topic": "Testing",
+      "difficulty": "Intermediate",
+      "question": "How do you mock dependencies during testing?",
+      "answer": "Use `app.dependency_overrides[original_dependency] = fake_dependency` to replace a real dependency with a test implementation. This lets tests avoid real databases or external services. Clear overrides after tests to prevent test state leaking into other tests.",
+      "keywords": [
+        "dependency_overrides",
+        "mock",
+        "testing"
+      ]
+    },
+    {
+      "id": 52,
+      "topic": "Authentication and Security",
+      "difficulty": "Intermediate",
+      "question": "How do you secure a FastAPI application?",
+      "answer": "Use strong authentication and authorization, hash passwords safely, enforce HTTPS, validate inputs, restrict CORS, keep secrets outside source control, update dependencies, apply rate limits, and return only necessary data. Also use least-privilege database credentials and safe error handling.",
+      "keywords": [
+        "security",
+        "HTTPS",
+        "authentication",
+        "authorization",
+        "validation"
+      ]
+    },
+    {
+      "id": 53,
+      "topic": "Authentication and Security",
+      "difficulty": "Intermediate",
+      "question": "What are common security best practices in FastAPI?",
+      "answer": "Use HTTPS, modern password hashing, environment-managed secrets, Pydantic validation, authorization checks, restrictive CORS settings, updated dependencies, safe response models, and appropriate logging. Never trust client-supplied identity or permissions without verification.",
+      "keywords": [
+        "security",
+        "best",
+        "practices",
+        "passwords",
+        "secrets",
+        "CORS"
+      ]
+    },
+    {
+      "id": 54,
+      "topic": "Performance and Reliability",
+      "difficulty": "Advanced",
+      "question": "How do you implement rate limiting in FastAPI?",
+      "answer": "Rate limiting limits requests by client or another key over a time window. A library such as SlowAPI can provide endpoint limits. For multi-worker or distributed deployments, use a shared backing store and consider proxy configuration so client IP identification is trustworthy.",
+      "keywords": [
+        "rate",
+        "limiting",
+        "SlowAPI",
+        "abuse",
+        "brute",
+        "force"
+      ]
+    },
+    {
+      "id": 55,
+      "topic": "Performance and Reliability",
+      "difficulty": "Advanced",
+      "question": "How do you optimize FastAPI performance?",
+      "answer": "Profile before optimizing. Common improvements include efficient database queries and indexes, connection pooling, async clients for I/O, caching, pagination, smaller response payloads, and minimizing unnecessary middleware. Use load tests and metrics to verify changes.",
+      "keywords": [
+        "performance",
+        "optimization",
+        "caching",
+        "SQL",
+        "indexes",
+        "pooling"
+      ]
+    },
+    {
+      "id": 56,
+      "topic": "Deployment",
+      "difficulty": "Intermediate",
+      "question": "How do you deploy a FastAPI application?",
+      "answer": "Run the application with an ASGI server such as Uvicorn, for example `uvicorn main:app --host 0.0.0.0 --port 8000`. Configure production environment variables, health checks, logs, HTTPS, and a suitable process/container deployment. A reverse proxy may sit in front of the application.",
+      "keywords": [
+        "deployment",
+        "Uvicorn",
+        "production",
+        "reverse",
+        "proxy"
+      ]
+    },
+    {
+      "id": 57,
+      "topic": "Deployment",
+      "difficulty": "Beginner",
+      "question": "How do you deploy FastAPI on Render?",
+      "answer": "Push the project to a Git repository, create a Render Web Service, connect the repository, configure dependencies with a build command such as `pip install -r requirements.txt`, and set a start command such as `uvicorn main:app --host 0.0.0.0 --port $PORT`. Configure required environment variables before deploying.",
+      "keywords": [
+        "Render",
+        "deployment",
+        "GitHub",
+        "PORT",
+        "build",
+        "start",
+        "command"
+      ]
+    },
+    {
+      "id": 58,
+      "topic": "Deployment",
+      "difficulty": "Beginner",
+      "question": "What ASGI server is commonly used with FastAPI and why?",
+      "answer": "Uvicorn is a commonly used ASGI server for FastAPI. It supports asynchronous applications and is straightforward to run locally and in production. For example, `uvicorn main:app --reload` is useful during development; production deployment needs appropriate worker and process management.",
+      "keywords": [
+        "ASGI",
+        "Uvicorn",
+        "server",
+        "workers"
+      ]
+    },
+    {
+      "id": 59,
+      "topic": "Web Architecture",
+      "difficulty": "Intermediate",
+      "question": "What is the difference between ASGI and WSGI?",
+      "answer": "WSGI is the traditional synchronous Python web-server interface. ASGI supports asynchronous applications and long-lived connections such as WebSockets, while also supporting synchronous applications. FastAPI is ASGI-based; Flask and Django have historically used WSGI, though Django also supports ASGI.",
+      "keywords": [
+        "ASGI",
+        "WSGI",
+        "WebSockets",
+        "synchronous",
+        "asynchronous"
+      ]
+    },
+    {
+      "id": 60,
+      "topic": "Project Architecture",
+      "difficulty": "Advanced",
+      "question": "How do you structure a production-ready FastAPI project?",
+      "answer": "Separate concerns into modules such as `main.py`, `routers/`, `schemas/`, `models/`, `database/`, `services/`, `dependencies/`, `config/`, and `tests/`. Add migrations, structured logging, configuration management, automated tests, and deployment configuration as the project requires.",
+      "keywords": [
+        "production",
+        "architecture",
+        "routers",
+        "schemas",
+        "services",
+        "tests"
+      ]
+    },
+    {
+      "id": 61,
+      "topic": "Databases",
+      "difficulty": "Intermediate",
+      "question": "How do you manage database sessions efficiently in FastAPI?",
+      "answer": "Create a session dependency that opens a session, yields it to the endpoint, and closes it in a `finally` block. This helps release resources reliably. Manage transactions explicitly where needed and configure connection pooling appropriately.",
+      "keywords": [
+        "database",
+        "sessions",
+        "yield",
+        "finally",
+        "cleanup",
+        "SQLAlchemy"
+      ]
+    },
+    {
+      "id": 62,
+      "topic": "Application Lifecycle",
+      "difficulty": "Intermediate",
+      "question": "What are lifespan events in FastAPI?",
+      "answer": "Use an async context manager passed as `FastAPI(lifespan=lifespan)` to initialize resources before the application serves requests and clean them up after shutdown. Examples include loading ML models, opening clients, and releasing resources.",
+      "keywords": [
+        "lifespan",
+        "startup",
+        "shutdown",
+        "resources",
+        "ML",
+        "models"
+      ]
+    },
+    {
+      "id": 63,
+      "topic": "Performance and Reliability",
+      "difficulty": "Advanced",
+      "question": "What are common FastAPI performance bottlenecks?",
+      "answer": "Common bottlenecks include slow SQL queries, missing indexes, blocking operations inside async endpoints, oversized responses, excessive external calls, poor session management, and missing caching. Measure with profiling and monitoring rather than guessing.",
+      "keywords": [
+        "bottlenecks",
+        "blocking",
+        "calls",
+        "SQL",
+        "queries",
+        "caching",
+        "profiling"
+      ]
+    },
+    {
+      "id": 64,
+      "topic": "Interview Coding",
+      "difficulty": "Intermediate",
+      "question": "What are common FastAPI interview coding tasks?",
+      "answer": "Common exercises include implementing CRUD endpoints, JWT-based authentication, Pydantic validation, file uploads, database integration, pagination, middleware, exception handlers, protected routes, and automated tests with TestClient.",
+      "keywords": [
+        "coding",
+        "interview",
+        "CRUD",
+        "JWT",
+        "validation",
+        "upload",
+        "pagination",
+        "tests"
+      ]
+    },
+    {
+      "id": 65,
+      "topic": "Behavioral Interview",
+      "difficulty": "Advanced",
+      "question": "Describe a challenging FastAPI issue you solved and how you approached it.",
+      "answer": "Use a truthful STAR-style answer: explain the situation, the task, how you investigated the root cause, what you changed, and the measured result. For example, if you actually encountered slow endpoints, discuss profiling, database-query improvements, or replacing blocking I/O. Do not claim a performance improvement or project experience that you cannot substantiate.",
+      "keywords": [
+        "behavioral",
+        "interview",
+        "debugging",
+        "STAR",
+        "problem",
+        "solving",
+        "metrics"
+      ]
+    }
+  ]
+}

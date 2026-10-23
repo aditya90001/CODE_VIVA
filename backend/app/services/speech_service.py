@@ -4,8 +4,10 @@ import logging
 import tempfile
 from pathlib import Path
 from threading import Lock
+from typing import TYPE_CHECKING
 
-from faster_whisper import WhisperModel
+if TYPE_CHECKING:
+    from faster_whisper import WhisperModel
 
 from backend.app.config import settings
 
@@ -16,7 +18,7 @@ _model_lock = Lock()
 _MODEL_LOAD_OPTIONS = {
     "device": "cpu",
     "compute_type": "int8",
-    "cpu_threads": 4,
+    "cpu_threads": 1,
 }
 
 
@@ -34,6 +36,8 @@ def _get_model() -> WhisperModel:
         with _model_lock:
             if _model is None:
                 try:
+                    from faster_whisper import WhisperModel
+
                     logger.info("Loading Whisper model '%s' on CPU", settings.whisper_model)
                     _model = WhisperModel(settings.whisper_model, **_MODEL_LOAD_OPTIONS)
                 except Exception as exc:
