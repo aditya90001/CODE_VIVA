@@ -3,7 +3,7 @@
 CODE_VIVA is a web application for running technical interviews grounded in a
 candidate's public GitHub repository and a local interview knowledge base.
 It analyzes repository metadata and source files, detects relevant concepts,
-retrieves matching questions from ChromaDB, and presents a ten-question
+retrieves matching questions from a SQLite FTS5 index, and presents a ten-question
 interview with answer scores, feedback, and a final report. Candidates can type
 answers or use supported browser speech features.
 
@@ -15,8 +15,9 @@ answers or use supported browser speech features.
   GitHub topics to identify technologies such as Python, machine learning,
   RAG, frontend, backend, databases, and DevOps. Repository contents select
   interview subjects only; candidates are not quizzed on their source code.
-- **Knowledge-base RAG:** Indexes JSON Q&A datasets and PDF question banks in a
-  persistent ChromaDB store, then retrieves questions by detected concept.
+- **Knowledge-base search:** Indexes JSON question banks into SQLite FTS5 and
+  retrieves questions by concept, topic, and difficulty. PDF question-bank
+  search remains an optional ChromaDB feature.
 - **Adaptive fundamentals interview:** Selects ten conceptual questions from
   the supplied knowledge base, starts at easy, and progresses through medium
   and hard. Strong answers trigger a harder follow-up on the same topic; weak
@@ -66,9 +67,10 @@ flowchart TD
     Analyzer --> Detector
     Detector --> Eval
     JSON --> Ingest
+    Ingest -->|SQLite FTS5| Eval
     PDF --> Ingest
-    Ingest --> Chroma
-    Eval -->|retrieve relevant question| Chroma
+    Ingest -->|optional vector index| Chroma
+    Eval -->|PDF retrieval| Chroma
     Eval -->|no knowledge-base match| Builtin
     Eval -->|save session, questions, answers| Database
     Eval --> Report
@@ -82,10 +84,10 @@ flowchart TD
 2. The backend fetches the public repository profile and selected files from
    GitHub, then uses repository signals to select relevant subject areas. It
    does not generate questions about the candidate's code.
-3. The evaluation service searches the JSON question collection in ChromaDB
+3. The evaluation service searches the JSON question bank with SQLite FTS5
    for an unused fundamental question at the planned difficulty and topic. It
-   next tries the PDF question collection, then concept-level built-in
-   questions and neutral fundamentals-only prompts.
+   next tries the optional PDF question collection, then concept-level
+   built-in questions and neutral fundamentals-only prompts.
 4. The question and session are saved to the relational database and returned
    to the frontend.
 5. The candidate types an answer or records it in the browser. The backend
@@ -100,13 +102,14 @@ flowchart TD
 
 ### Knowledge-base indexing and retrieval
 
-- With `CHROMA_ENABLED=true`, every `knowledge_base/*.json` file is parsed on
-  backend startup and **upserted** into the `json_question_bank` Chroma
-  collection. This supports both top-level JSON arrays and dataset objects
-  with an `items` array.
-- PDF files are ingested through the admin ingestion endpoint into the
-  `question_bank` collection. PDF question extraction recognizes numbered
-  questions and `[Easy]`, `[Medium]`, and `[Hard]` difficulty markers.
+- Every `knowledge_base/*.json` file is parsed at startup and loaded into an
+  in-memory SQLite FTS5 index. The index searches question, answer, and topic
+  text, then filters by domain, difficulty, and optional exact topic. This
+  supports both top-level JSON arrays and dataset objects with an `items`
+  array; no embedding model or separate vector database is needed.
+- PDF files can optionally be ingested through the admin endpoint into
+  ChromaDB. PDF question extraction recognizes numbered questions and `[Easy]`,
+  `[Medium]`, and `[Hard]` difficulty markers.
 - JSON records may provide a topic, answer, evaluation points, example,
   interview tip, and difficulty. Missing difficulty is inferred by the
   ingestion service.
@@ -124,7 +127,7 @@ flowchart TD
 | Frontend | React 18, TypeScript, Vite |
 | Backend API | Python 3.11+, FastAPI, Pydantic |
 | Relational storage | SQLAlchemy, SQLite by default, PostgreSQL supported |
-| Vector search | ChromaDB with persistent local storage |
+| Question search | SQLite FTS5 (built into Python's SQLite); optional ChromaDB for PDF banks |
 | Repository analysis | GitHub REST API, `httpx`, regular-expression concept signals |
 | Knowledge ingestion | JSON, `pypdf` for PDFs |
 | Voice | Browser Speech Synthesis and MediaRecorder; backend `faster-whisper` transcription |
@@ -172,7 +175,7 @@ flowchart TD
 - Git
 - Internet access for GitHub repository analysis
 
-The default configuration uses SQLite and a local persistent ChromaDB directory;
+The default configuration uses SQLite and an in-memory FTS5 question index;
 PostgreSQL and an OpenAI-compatible LLM endpoint can be configured optionally.
 
 ## Local Development
@@ -208,9 +211,9 @@ Start the API server:
 python -m uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-The FastAPI application creates relational database tables at startup. It
-ingests JSON knowledge-base files into Chroma only when `CHROMA_ENABLED=true`.
-OpenAPI/Swagger documentation is available at `http://localhost:8000/docs`.
+The FastAPI application creates relational database tables and builds the
+SQLite FTS5 index from JSON knowledge-base files at startup. OpenAPI/Swagger
+documentation is available at `http://localhost:8000/docs`.
 
 ### 2. Configure and run the frontend
 
@@ -247,22 +250,23 @@ secrets.
 | `DATABASE_URL` | `sqlite:///./evaluator.db` | SQLAlchemy database connection |
 | `APP_ENV` | `development` | Environment label returned by `/health` |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated allowed frontend origins |
-| `GITHUB_TOKEN` | Empty | Optional GitHub token setting; repository analyzer currently supports public repositories |
+| `GITHUB_TOKEN` | Empty | Optional GitHub personal access token sent to the GitHub API to increase rate limits for public repository analysis |
 | `LLM_PROVIDER` | `groq` | Provider label for LLM configuration |
 | `LLM_MODEL` | `llama3-8b-8192` | Model name used by the OpenAI-compatible LLM utility |
 | `LLM_API_KEY` | Empty | API key used by the LLM utility when calling a compatible endpoint |
 | `LLM_BASE_URL` | Empty | Optional OpenAI-compatible API base URL; defaults to Groq's API in the LLM utility |
-| `CHROMA_ENABLED` | `false` | Enable Chroma vector indexing and retrieval (uses extra memory) |
-| `CHROMA_PERSIST_DIR` | `./.chroma` | Persistent vector-store directory |
+| `CHROMA_ENABLED` | `false` | Enable optional ChromaDB PDF/repository vector features (uses extra memory) |
+| `CHROMA_PERSIST_DIR` | `./.chroma` | Persistent directory for optional ChromaDB data |
 | `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | Empty | Reserved LiveKit configuration |
 | `STT_LANGUAGE` | Empty | Optional language hint for Whisper, such as `en` or `hi`; auto-detected when empty |
 | `STT_MODEL`, `TTS_MODEL`, `TTS_VOICE` | Empty | Reserved speech configuration |
 | `WHISPER_MODEL` | `tiny` | Whisper model size downloaded by the backend for speech transcription |
 | `VITE_API_BASE_URL` | `http://localhost:8000/api/v1` | Frontend build-time variable; set in the frontend environment/Render Static Site, not the backend `.env` |
 
-When enabled, ChromaDB stores its local index in `.chroma/` by default. That
+The JSON FTS5 index is held in memory and rebuilt from the JSON files at each
+startup. Optional ChromaDB data is stored in `.chroma/` by default; that
 directory is ignored by Git and may be regenerated by re-ingesting the
-knowledge base. When disabled, interviews use built-in fallback questions.
+knowledge base.
 
 ## Knowledge Base Format
 
@@ -311,8 +315,9 @@ Supported aliases include `question`/`q`, `expected_answer`/`answer`/`a`,
 
 For PDF sources, add `.pdf` files under `knowledge_base/`. Use numbered question
 lines and optional `[Easy]`, `[Medium]`, or `[Hard]` section markers for best
-results. JSON ingestion runs at backend startup; use the admin endpoints below
-to re-index while the server is running.
+results. JSON ingestion runs at backend startup and rebuilds the in-memory
+FTS5 index; use the admin endpoint below to re-index while the server is
+running.
 
 ## API Reference
 
@@ -331,7 +336,7 @@ All application endpoints are prefixed with `/api/v1`.
 | `GET` | `/api/v1/evaluations/{session_id}/report` | Retrieve or build the final session report |
 | `POST` | `/api/v1/admin/ingest-json-kb` | Re-index JSON knowledge-base files in the background |
 | `POST` | `/api/v1/admin/ingest-knowledge-base` | Re-index JSON and PDF knowledge-base files in the background |
-| `GET` | `/api/v1/admin/knowledge-base-stats` | Get JSON and PDF vector-bank statistics |
+| `GET` | `/api/v1/admin/knowledge-base-stats` | Get JSON FTS5 and optional PDF-bank statistics |
 
 ### Start an evaluation
 
@@ -397,12 +402,16 @@ into the Docker image):
 - `DATABASE_URL`: create a Render PostgreSQL database and use its **Internal
   Database URL**, changing the scheme from `postgres://` or `postgresql://` to
   `postgresql+psycopg://` for this project's Psycopg 3 driver.
+- `GITHUB_TOKEN`: a GitHub personal access token. Add it as a secret environment
+  variable on the backend to avoid GitHub's low unauthenticated API rate limit.
+  A fine-grained token needs only public repository read access; never put the
+  token in frontend/Vercel variables or commit it to the repository.
 - `CORS_ORIGINS`: the exact deployed frontend origin, for example
   `https://your-frontend.onrender.com` (no path or trailing slash). Multiple
   origins can be comma-separated.
-- `CHROMA_ENABLED=false` to prevent Chroma from downloading its embedding
-  model and exceeding the 512 MB instance memory limit. Built-in interview
-  questions remain available; vector knowledge-base retrieval is disabled.
+- `CHROMA_ENABLED=false` to keep optional ChromaDB features (including PDF
+  question indexing) disabled. The JSON question bank still works through
+  SQLite FTS5 and does not download an embedding model.
 - `WHISPER_MODEL=tiny` to use the smallest default Whisper model.
 - `STT_LANGUAGE` if interviews should transcribe a known language rather than
   asking Whisper to detect it.
@@ -437,7 +446,8 @@ Deploy `frontend/` as a Render **Static Site**:
 The image uses one Uvicorn worker, limits numerical-library threading, and
 loads the Whisper runtime/model only when speech transcription is requested.
 With Chroma disabled, this avoids the embedding-model download seen in the
-failed deployment. This reduces memory use but does not guarantee the entire
+failed deployment while retaining JSON question search. This reduces memory
+use but does not guarantee the entire
 service stays below 512 MB: Whisper transcription can still temporarily use
 additional memory. Keep `WHISPER_MODEL=tiny`; if transcription cannot load
 within the available memory, the endpoint returns an error and candidates can

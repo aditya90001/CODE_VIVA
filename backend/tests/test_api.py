@@ -11,23 +11,33 @@ from fastapi.testclient import TestClient
 from backend.app.db import Base, engine
 from backend.app.main import app
 from backend.app.services.evaluation_service import EvaluationService
-from backend.app.services.json_kb_ingestion_service import (
-    _get_chroma_client as get_json_chroma_client,
-    ingest_json_knowledge_base,
-)
-from backend.app.services.pdf_ingestion_service import (
-    _get_chroma_client as get_pdf_chroma_client,
-)
+from backend.app.services import json_kb_ingestion_service
+from backend.app.services.json_kb_ingestion_service import ingest_json_knowledge_base
 
 Base.metadata.create_all(bind=engine)
 client = TestClient(app)
 
 
-def test_chroma_is_not_initialized_when_disabled(monkeypatch):
+def test_json_knowledge_base_uses_fts_when_chroma_is_disabled(tmp_path, monkeypatch):
     monkeypatch.setattr("backend.app.config.settings.chroma_enabled", False)
+    source_file = (
+        Path(__file__).resolve().parents[2]
+        / "knowledge_base"
+        / "machine_learning_interview_qa(1).json"
+    )
+    shutil.copyfile(source_file, tmp_path / source_file.name)
 
-    assert get_json_chroma_client("./.chroma") is None
-    assert get_pdf_chroma_client("./.chroma") is None
+    summary = ingest_json_knowledge_base(str(tmp_path))
+    questions = json_kb_ingestion_service.retrieve_json_questions(
+        concept="machine_learning",
+        difficulty="easy",
+        persist_dir="unused",
+        n=2,
+    )
+
+    assert summary["total_indexed"] == 61
+    assert len(questions) == 2
+    assert all(question["domain"] == "machine_learning" for question in questions)
 
 
 def test_machine_learning_knowledge_base_dataset_is_indexed(tmp_path, monkeypatch):
@@ -38,32 +48,11 @@ def test_machine_learning_knowledge_base_dataset_is_indexed(tmp_path, monkeypatc
     )
     shutil.copyfile(source_file, tmp_path / source_file.name)
 
-    class FakeCollection:
-        def __init__(self):
-            self.metadata = []
-
-        def upsert(self, documents, metadatas, ids):
-            self.metadata.extend(metadatas)
-
-    class FakeClient:
-        def __init__(self):
-            self.collection = FakeCollection()
-
-        def get_or_create_collection(self, **kwargs):
-            return self.collection
-
-    client = FakeClient()
-    monkeypatch.setattr(
-        "backend.app.services.json_kb_ingestion_service._get_chroma_client",
-        lambda _: client,
-    )
-
     summary = ingest_json_knowledge_base(str(tmp_path), "unused")
 
     assert summary[source_file.name] == 61
     assert summary["total_indexed"] == 61
-    assert len(client.collection.metadata) == 61
-    assert all(item["domain"] == "machine_learning" for item in client.collection.metadata)
+    assert json_kb_ingestion_service.get_json_kb_stats("unused")["total"] == 61
 
 
 def test_interview_fallback_questions_are_distinct_for_ten_turns(monkeypatch):
@@ -235,48 +224,25 @@ def test_report_distinguishes_detected_from_actually_tested_concepts():
     assert report["weak_areas"] == ["rag"]
 
 
-def test_json_question_retrieval_filters_by_concept_difficulty_and_topic(monkeypatch):
-    from backend.app.services import json_kb_ingestion_service
-
-    class FakeCollection:
-        def count(self):
-            return 2
-
-        def query(self, **kwargs):
-            assert kwargs["where"] == {
-                "$and": [
-                    {"domain": {"$eq": "machine_learning"}},
-                    {"difficulty": {"$eq": "hard"}},
-                    {"topic": {"$eq": "Generalization"}},
-                ]
-            }
-            return {
-                "documents": [["Question A", "Question B"]],
-                "metadatas": [[
-                    {
-                        "question": "Question A",
-                        "topic": "Generalization",
-                        "domain": "machine_learning",
-                        "difficulty": "hard",
-                    },
-                    {
-                        "question": "Question B",
-                        "topic": "Other",
-                        "domain": "machine_learning",
-                        "difficulty": "medium",
-                    },
-                ]],
-            }
-
-    class FakeClient:
-        def get_collection(self, _):
-            return FakeCollection()
-
-    monkeypatch.setattr(
-        json_kb_ingestion_service,
-        "_get_chroma_client",
-        lambda _: FakeClient(),
-    )
+def test_json_question_retrieval_filters_by_concept_difficulty_and_topic():
+    json_kb_ingestion_service._index_entries([
+        {
+            "question": "Question A about regularization",
+            "answer": "",
+            "topic": "Generalization",
+            "domain": "machine_learning",
+            "difficulty": "hard",
+            "evaluation_points": [],
+        },
+        {
+            "question": "Question B",
+            "answer": "",
+            "topic": "Other",
+            "domain": "machine_learning",
+            "difficulty": "medium",
+            "evaluation_points": [],
+        },
+    ])
 
     questions = json_kb_ingestion_service.retrieve_json_questions(
         concept="machine_learning",
@@ -285,7 +251,9 @@ def test_json_question_retrieval_filters_by_concept_difficulty_and_topic(monkeyp
         topic="Generalization",
     )
 
-    assert [question["question"] for question in questions] == ["Question A"]
+    assert [question["question"] for question in questions] == [
+        "Question A about regularization"
+    ]
 
 
 def test_related_knowledge_questions_are_combined_into_one_prompt(monkeypatch):
@@ -344,7 +312,7 @@ def test_whisper_transcription_reads_audio_and_returns_text(monkeypatch):
 
 
 def test_interview_completes_after_ten_submitted_answers(monkeypatch):
-    async def fake_analyze_repository(url: str):
+    async def fake_analyze_repository(url: str, github_token: str | None = None):
         return {
             "repository_url": url,
             "owner": "demo",
@@ -443,7 +411,7 @@ def test_question_generation_stays_aligned_with_repo_stack():
 
 
 def test_evaluation_flow(monkeypatch):
-    async def fake_analyze_repository(url: str):
+    async def fake_analyze_repository(url: str, github_token: str | None = None):
         return {
             "repository_url": url,
             "owner": "demo",

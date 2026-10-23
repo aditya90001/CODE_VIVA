@@ -91,6 +91,16 @@ async def analyze_repository(repository_url: str, github_token: str | None = Non
         repo_response = await client.get(f"https://api.github.com/repos/{owner}/{repo}")
         if repo_response.status_code == 404:
             raise GitHubRepositoryError("Repository was not found or is private")
+        if repo_response.status_code == 403:
+            if repo_response.headers.get("X-RateLimit-Remaining") == "0":
+                raise GitHubRepositoryError(
+                    "GitHub API rate limit exceeded. Configure GITHUB_TOKEN on the "
+                    "backend service and try again after the rate limit resets."
+                )
+            raise GitHubRepositoryError(
+                "GitHub denied access to this repository. Confirm it is public and "
+                "that the configured GITHUB_TOKEN is valid."
+            )
         if repo_response.status_code >= 400:
             raise GitHubRepositoryError(f"GitHub API request failed: {repo_response.status_code}")
 

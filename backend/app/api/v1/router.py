@@ -86,7 +86,7 @@ async def ingest_kb(background_tasks: BackgroundTasks) -> dict[str, Any]:
 async def ingest_json_kb(background_tasks: BackgroundTasks) -> dict[str, Any]:
     """
     Trigger ingestion of the JSON knowledge base files only.
-    Indexes rag_knowledge_base_30_qa.json and python_interview_rag_qa.json into ChromaDB.
+    Rebuilds the SQLite FTS5 index from JSON knowledge-base files.
     """
     def _run():
         summary = ingest_json_knowledge_base(
@@ -149,7 +149,10 @@ async def voice_transcription(audio: UploadFile = File(...)) -> dict[str, str]:
 @router.post("/evaluations", response_model=EvaluationSessionOut, status_code=status.HTTP_201_CREATED)
 async def create_evaluation(payload: EvaluationCreate, db: Session = Depends(get_db)) -> EvaluationSessionOut:
     try:
-        profile = await analyze_repository(payload.repository.url)
+        profile = await analyze_repository(
+            payload.repository.url,
+            github_token=settings.github_token,
+        )
     except GitHubRepositoryError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

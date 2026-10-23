@@ -2,7 +2,7 @@
 JSON Knowledge Base Ingestion Service
 --------------------------------------
 Dynamically discovers, parses, and indexes all JSON knowledge base files 
-in the `knowledge_base/` directory into ChromaDB (`json_question_bank` collection).
+in the `knowledge_base/` directory into an in-memory SQLite FTS5 index.
 
 Supports:
   - rag_knowledge_base_30_qa.json (RAG Q&As)
@@ -11,33 +11,46 @@ Supports:
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import re
+import sqlite3
 from pathlib import Path
+from threading import Lock
 from typing import Any
-
-from backend.app.config import settings
 
 logger = logging.getLogger(__name__)
 
-JSON_KB_COLLECTION = "json_question_bank"
+_fts_connection: sqlite3.Connection | None = None
+_fts_lock = Lock()
 
 
-def _get_chroma_client(persist_dir: str) -> Any:
-    if not settings.chroma_enabled:
-        return None
-    try:
-        import chromadb
-        from chromadb.config import Settings as ChromaSettings
-        return chromadb.PersistentClient(
-            path=persist_dir,
-            settings=ChromaSettings(anonymized_telemetry=False),
-        )
-    except ImportError:
-        logger.error("chromadb not installed")
-        return None
+def _get_fts_connection() -> sqlite3.Connection:
+    global _fts_connection
+    if _fts_connection is None:
+        with _fts_lock:
+            if _fts_connection is None:
+                connection = sqlite3.connect(":memory:", check_same_thread=False)
+                try:
+                    connection.execute(
+                        """
+                        CREATE VIRTUAL TABLE json_question_bank USING fts5(
+                            question,
+                            answer,
+                            topic,
+                            domain UNINDEXED,
+                            difficulty UNINDEXED,
+                            evaluation_points UNINDEXED
+                        )
+                        """
+                    )
+                except sqlite3.OperationalError as exc:
+                    connection.close()
+                    raise RuntimeError(
+                        "SQLite FTS5 is required for the JSON question bank"
+                    ) from exc
+                _fts_connection = connection
+    return _fts_connection
 
 
 def _infer_difficulty_rag(topic: str) -> str:
@@ -145,59 +158,48 @@ def _parse_generic_json_kb(filepath: Path) -> list[dict[str, Any]]:
     return entries
 
 
-def _index_entries(entries: list[dict[str, Any]], persist_dir: str) -> int:
-    if not entries:
-        return 0
-    client = _get_chroma_client(persist_dir)
-    if client is None:
-        return 0
-    try:
-        collection = client.get_or_create_collection(
-            name=JSON_KB_COLLECTION,
-            metadata={"hnsw:space": "cosine"},
-        )
-        docs, metas, ids = [], [], []
-        for entry in entries:
-            entry_id = hashlib.md5(f"{entry['domain']}::{entry['question']}".encode()).hexdigest()
-            docs.append(entry["doc_text"])
-            metadata = {
-                "question": entry["question"],
-                "answer": entry["answer"][:500],
-                "topic": entry["topic"],
-                "domain": entry["domain"],
-                "difficulty": entry["difficulty"],
-            }
-            if entry["evaluation_points"]:
-                metadata["evaluation_points"] = entry["evaluation_points"]
-            metas.append(metadata)
-            ids.append(entry_id)
-        batch = 500
-        for start in range(0, len(docs), batch):
-            collection.upsert(
-                documents=docs[start: start + batch],
-                metadatas=metas[start: start + batch],
-                ids=ids[start: start + batch],
+def _index_entries(entries: list[dict[str, Any]]) -> int:
+    connection = _get_fts_connection()
+    with _fts_lock:
+        with connection:
+            connection.execute("DELETE FROM json_question_bank")
+            connection.executemany(
+                """
+                INSERT INTO json_question_bank
+                    (question, answer, topic, domain, difficulty, evaluation_points)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        entry["question"],
+                        entry["answer"][:500],
+                        entry["topic"],
+                        entry["domain"],
+                        entry["difficulty"],
+                        json.dumps(entry["evaluation_points"]),
+                    )
+                    for entry in entries
+                ],
             )
-        logger.info("json_kb: indexed %d entries into '%s'", len(docs), JSON_KB_COLLECTION)
-        return len(docs)
-    except Exception as exc:
-        logger.error("json_kb: indexing failed -- %s", exc)
-        return 0
+    logger.info("json_kb: indexed %d entries into SQLite FTS5", len(entries))
+    return len(entries)
 
 
-def ingest_json_knowledge_base(knowledge_base_dir: str, persist_dir: str) -> dict[str, Any]:
-    """Dynamically scan all JSON files in knowledge_base_dir, parse, and index into ChromaDB."""
+def ingest_json_knowledge_base(knowledge_base_dir: str, persist_dir: str = "") -> dict[str, Any]:
+    """Parse JSON knowledge-base files and rebuild the in-memory SQLite FTS5 index."""
     kb_path = Path(knowledge_base_dir)
     summary: dict[str, int] = {}
     all_entries: list[dict] = []
 
     if not kb_path.exists():
         logger.warning("json_kb: directory not found -- %s", kb_path)
+        _index_entries([])
         return {"total_indexed": 0}
 
     json_files = sorted(list(kb_path.glob("*.json")))
     if not json_files:
         logger.info("json_kb: no .json files found in %s", kb_path)
+        _index_entries([])
         return {"total_indexed": 0}
 
     for filepath in json_files:
@@ -208,7 +210,7 @@ def ingest_json_knowledge_base(knowledge_base_dir: str, persist_dir: str) -> dic
             all_entries.extend(entries)
             logger.info("json_kb: parsed %d entries from %s (domain: %s)", len(entries), filepath.name, file_domain)
 
-    total = _index_entries(all_entries, persist_dir)
+    total = _index_entries(all_entries)
     summary["total_indexed"] = total
     return summary
 
@@ -221,74 +223,66 @@ def retrieve_json_questions(
     n: int = 5,
     topic: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Retrieve unasked questions for a concept, difficulty, and optional topic."""
-    client = _get_chroma_client(persist_dir)
-    if client is None:
+    """Retrieve matching questions from SQLite FTS5 for a concept and difficulty."""
+    if n <= 0:
         return []
-    try:
-        collection = client.get_collection(JSON_KB_COLLECTION)
-    except Exception:
-        logger.warning("json_kb: collection not found -- not ingested yet")
-        return []
+
+    connection = _get_fts_connection()
     exclude = set(exclude_questions or [])
-    total = collection.count()
-    if total == 0:
-        return []
+    search_terms = re.findall(r"[^\W_]+", (topic or concept).replace("_", " "), flags=re.UNICODE)
+    search_query = " OR ".join(f'"{term}"' for term in search_terms)
+    domain = "machine_learning" if concept == "ml" else concept
+    filters = ["domain = ?", "difficulty = ?"]
+    parameters: list[Any] = [domain, difficulty]
+    if topic:
+        filters.append("topic = ?")
+        parameters.append(topic)
+    if search_query:
+        filters.insert(0, "json_question_bank MATCH ?")
+        parameters.insert(0, search_query)
+    order = (
+        "bm25(json_question_bank, 5.0, 1.0, 2.0, 0.0, 0.0, 0.0)"
+        if search_query
+        else "rowid"
+    )
+    parameters.append(max(n + len(exclude) + 10, 0))
+    query = f"""
+        SELECT question, answer, topic, domain, difficulty, evaluation_points
+        FROM json_question_bank
+        WHERE {" AND ".join(filters)}
+        ORDER BY {order}
+        LIMIT ?
+    """
 
-    try:
-        search_term = (topic or concept).replace("_", " ")
-        domain = "machine_learning" if concept == "ml" else concept
-        results = collection.query(
-            query_texts=[search_term],
-            n_results=min(n + len(exclude) + 10, total),
-            include=["documents", "metadatas"],
-            where={
-                "$and": [
-                    {"domain": {"$eq": domain}},
-                    {"difficulty": {"$eq": difficulty}},
-                    *([{"topic": {"$eq": topic}}] if topic else []),
-                ]
-            },
-        )
-        docs = results.get("documents", [[]])[0]
-        metas = results.get("metadatas", [[]])[0]
+    with _fts_lock:
+        rows = connection.execute(query, parameters).fetchall()
 
-        questions: list[dict[str, Any]] = []
-        for _, meta in zip(docs, metas):
-            q_text = meta.get("question", "")
-            if (
-                q_text
-                and q_text not in exclude
-                and meta.get("difficulty") == difficulty
-                and (not topic or meta.get("topic") == topic)
-            ):
-                questions.append({
-                    "question": q_text,
-                    "answer": meta.get("answer", ""),
-                    "topic": meta.get("topic", concept),
-                    "domain": meta.get("domain", concept),
-                    "difficulty": meta["difficulty"],
-                    "evaluation_points": meta.get("evaluation_points", []),
-                })
-            if len(questions) >= n:
-                break
-
-        return questions
-    except Exception as exc:
-        logger.error("json_kb: retrieval failed -- %s", exc)
-        return []
+    questions: list[dict[str, Any]] = []
+    for question, answer, result_topic, result_domain, result_difficulty, points in rows:
+        if question and question not in exclude:
+            questions.append(
+                {
+                    "question": question,
+                    "answer": answer,
+                    "topic": result_topic,
+                    "domain": result_domain,
+                    "difficulty": result_difficulty,
+                    "evaluation_points": json.loads(points),
+                }
+            )
+        if len(questions) >= n:
+            break
+    return questions
 
 
 def get_json_kb_stats(persist_dir: str) -> dict[str, Any]:
-    """Return stats about the json_question_bank collection."""
-    client = _get_chroma_client(persist_dir)
-    if client is None:
-        return {"available": False, "total": 0}
-    try:
-        collection = client.get_collection(JSON_KB_COLLECTION)
-        return {"available": True, "total": collection.count(), "collection": JSON_KB_COLLECTION}
-    except Exception:
-        return {"available": False, "total": 0}
+    """Return stats about the in-memory SQLite FTS5 question index."""
+    connection = _get_fts_connection()
+    with _fts_lock:
+        total = connection.execute(
+            "SELECT COUNT(*) FROM json_question_bank"
+        ).fetchone()[0]
+    return {"available": total > 0, "total": total, "index": "SQLite FTS5"}
 
 
 def is_json_kb_ready(persist_dir: str) -> bool:

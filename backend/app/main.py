@@ -13,21 +13,15 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Upsert JSON knowledge-base files on startup so newly added files are indexed."""
-    if not settings.chroma_enabled:
-        logger.info("startup: Chroma is disabled; skipping JSON knowledge-base ingestion")
-        yield
-        return
-
+    """Build the lightweight SQLite FTS5 question index from JSON files."""
     from backend.app.services.json_kb_ingestion_service import (
         ingest_json_knowledge_base,
     )
 
     summary = ingest_json_knowledge_base(
         knowledge_base_dir="./knowledge_base",
-        persist_dir=settings.chroma_persist_dir,
     )
-    logger.info("startup: JSON KB ingestion done — %s", summary)
+    logger.info("startup: SQLite FTS5 JSON KB indexing done — %s", summary)
 
     yield  # server runs here
 
