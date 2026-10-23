@@ -9,6 +9,8 @@ import logging
 import re
 from typing import Any
 
+from backend.app.config import settings
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -74,7 +76,7 @@ class RAGService:
 
     @classmethod
     def _get_client(cls, persist_dir: str) -> Any:
-        if not CHROMA_AVAILABLE:
+        if not settings.chroma_enabled or not CHROMA_AVAILABLE:
             return None
         if cls._client is None:
             cls._client = chromadb.PersistentClient(

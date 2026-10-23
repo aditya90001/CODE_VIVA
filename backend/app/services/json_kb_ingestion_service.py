@@ -18,12 +18,16 @@ import re
 from pathlib import Path
 from typing import Any
 
+from backend.app.config import settings
+
 logger = logging.getLogger(__name__)
 
 JSON_KB_COLLECTION = "json_question_bank"
 
 
 def _get_chroma_client(persist_dir: str) -> Any:
+    if not settings.chroma_enabled:
+        return None
     try:
         import chromadb
         from chromadb.config import Settings as ChromaSettings

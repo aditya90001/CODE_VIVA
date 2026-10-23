@@ -14,6 +14,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from backend.app.config import settings
+
 logger = logging.getLogger(__name__)
 
 # Difficulty markers the interviewer can embed in PDFs
@@ -137,6 +139,8 @@ def _extract_questions(text: str, topic: str) -> list[dict[str, Any]]:
 # ChromaDB indexing
 # ---------------------------------------------------------------------------
 def _get_chroma_client(persist_dir: str) -> Any:
+    if not settings.chroma_enabled:
+        return None
     try:
         import chromadb
         from chromadb.config import Settings as ChromaSettings

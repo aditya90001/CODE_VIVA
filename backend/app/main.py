@@ -14,6 +14,11 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Upsert JSON knowledge-base files on startup so newly added files are indexed."""
+    if not settings.chroma_enabled:
+        logger.info("startup: Chroma is disabled; skipping JSON knowledge-base ingestion")
+        yield
+        return
+
     from backend.app.services.json_kb_ingestion_service import (
         ingest_json_knowledge_base,
     )

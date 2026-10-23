@@ -11,10 +11,23 @@ from fastapi.testclient import TestClient
 from backend.app.db import Base, engine
 from backend.app.main import app
 from backend.app.services.evaluation_service import EvaluationService
-from backend.app.services.json_kb_ingestion_service import ingest_json_knowledge_base
+from backend.app.services.json_kb_ingestion_service import (
+    _get_chroma_client as get_json_chroma_client,
+    ingest_json_knowledge_base,
+)
+from backend.app.services.pdf_ingestion_service import (
+    _get_chroma_client as get_pdf_chroma_client,
+)
 
 Base.metadata.create_all(bind=engine)
 client = TestClient(app)
+
+
+def test_chroma_is_not_initialized_when_disabled(monkeypatch):
+    monkeypatch.setattr("backend.app.config.settings.chroma_enabled", False)
+
+    assert get_json_chroma_client("./.chroma") is None
+    assert get_pdf_chroma_client("./.chroma") is None
 
 
 def test_machine_learning_knowledge_base_dataset_is_indexed(tmp_path, monkeypatch):
