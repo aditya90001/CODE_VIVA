@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   AlertTriangle,
 } from 'lucide-react';
+import { API_BASE } from '../constants';
 
 interface NavbarProps {
   backendOnline: boolean | null;
@@ -58,7 +59,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               demoMode
                 ? 'Running in Client-Side Interactive Sandbox Mode'
                 : backendOnline
-                ? 'Backend API Connected (http://localhost:8000)'
+                ? `Backend API Connected (${new URL(API_BASE).origin})`
                 : 'Backend API Offline — run `uvicorn backend.app.main:app` or use Sandbox Mode'
             }
           >
